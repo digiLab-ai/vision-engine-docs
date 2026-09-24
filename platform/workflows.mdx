@@ -1,27 +1,14 @@
 ---
-title: "Build and Run Workflows on the Platform"
+title: "Build and Run Saved Workflows on the Uncertainty Engine"
 sidebarTitle: "Workflows"
 description: "Save node graphs as named, reusable workflows inside a project, then execute them with custom inputs — synchronously or as background jobs."
 ---
 
 A workflow is a saved node graph stored inside a project. Once a graph is saved as a workflow it gets a stable ID, so any team member can execute it from the SDK or the web UI without reconstructing the graph each time. You can pass input overrides at run time to adjust node parameters without modifying the underlying workflow definition.
 
-## List workflows in a project
+## Managing workflows
 
-Call `client.workflows.list()` with a project ID to see every workflow saved in that project.
-
-```python
-from uncertainty_engine import Client
-
-client = Client()
-client.authenticate()
-
-workflows = client.workflows.list(project_id="your_project_id")
-for wf in workflows:
-    print(wf.id, wf.name)
-```
-
-Use the returned `id` value when you run or queue a workflow.
+Workflows are created and managed through the **Uncertainty Engine web UI** or via the **REST API**. The REST workflows endpoint lets you list, create, and manage saved workflows within a project. See the [REST Workflows reference](/api-reference/rest-workflows) for details.
 
 ## Run a workflow
 
@@ -41,7 +28,7 @@ result = client.run_workflow(
 print(result.outputs)
 ```
 
-The `result` object contains an `outputs` dictionary keyed by the output labels defined in the workflow.
+The `result` object is a `JobInfo` instance. Its `outputs` dictionary is keyed by the output labels defined in the workflow.
 
 ## Override inputs at run time
 

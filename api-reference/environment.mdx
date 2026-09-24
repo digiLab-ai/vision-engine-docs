@@ -1,7 +1,7 @@
 ---
-title: "Environment: Configure SDK Target Endpoints"
+title: "Environment Class — Configure SDK Deployment Targets"
 sidebarTitle: "Environment"
-description: "Use the Environment class to point the SDK at production, development, or custom Uncertainty Engine deployments with separate credentials and API endpoints."
+description: "Use the Environment class to point the SDK at production, development, or custom Uncertainty Engine deployments with separate credentials and endpoints."
 ---
 
 By default the Uncertainty Engine SDK connects to the production environment, but you can point it at a different deployment — such as a development instance or a bespoke environment provisioned by digiLab — by configuring the `env` parameter when constructing a `Client`. This page explains the three ways to target an environment and how to use the `Environment` class for fully custom deployments.
@@ -56,10 +56,10 @@ from uncertainty_engine import Client, Environment
 
 client = Client(
     env=Environment(
-        cognito_user_pool_client_id="3vj5pe253j4v070euqjdk38a24",
-        core_api="https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com",
-        region="eu-west-2",
-        resource_api="https://m90q55iux6.execute-api.eu-west-2.amazonaws.com",
+        cognito_user_pool_client_id="<your_cognito_client_id>",
+        core_api="<your_core_api_url>",
+        region="<your_region>",
+        resource_api="<your_resource_api_url>",
     )
 )
 client.authenticate()
@@ -76,7 +76,7 @@ client.authenticate()
   The base URL of the Core API gateway for this environment. Must start with
   `https://` and must not include a trailing slash.
 
-  Example: `"https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com"`
+  Example: `"https://your-core-api.execute-api.eu-west-2.amazonaws.com"`
 </ParamField>
 
 <ParamField path="region" type="str" required>
@@ -89,7 +89,7 @@ client.authenticate()
   The base URL of the Resource API gateway for this environment. Must start
   with `https://` and must not include a trailing slash.
 
-  Example: `"https://m90q55iux6.execute-api.eu-west-2.amazonaws.com"`
+  Example: `"https://your-resource-api.execute-api.eu-west-2.amazonaws.com"`
 </ParamField>
 
 <Note>

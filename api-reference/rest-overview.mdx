@@ -1,5 +1,5 @@
 ---
-title: "REST API Overview: Uncertainty Engine Endpoints"
+title: "REST API Overview — Uncertainty Engine API Reference"
 sidebarTitle: "REST Overview"
 description: "An overview of the Core API and Resource API for the Uncertainty Engine, covering base URLs, authentication methods, and token consumption."
 ---
@@ -27,20 +27,7 @@ The base URLs for both APIs are environment-specific and are provided to you whe
 
 ### Core API
 
-The Core API uses **Bearer token authentication**. The Uncertainty Engine SDK handles this automatically when you call `client.authenticate()`. If you need the token for direct REST calls, retrieve it from the SDK after authenticating:
-
-```python
-from uncertainty_engine import Client
-
-client = Client()
-client.authenticate()
-
-# Retrieve the access token for use in REST requests
-access_token = client.auth.get_tokens().access_token
-print(access_token)
-```
-
-Pass this token in every request to the Core API:
+The Core API uses **Bearer token authentication**. The Uncertainty Engine SDK handles this automatically when you call `client.authenticate()`. For direct REST calls you will need to obtain a Bearer token through the Cognito authentication flow for your environment — the token is then passed in every request to the Core API:
 
 ```
 Authorization: Bearer <access_token>
@@ -129,7 +116,7 @@ env = Environment(
     resource_api="https://<resource_api_id>.execute-api.<region>.amazonaws.com",
 )
 
-client = Client(environment=env)
+client = Client(env=env)
 client.authenticate()
 ```
 

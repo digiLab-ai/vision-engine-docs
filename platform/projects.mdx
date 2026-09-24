@@ -1,10 +1,10 @@
 ---
-title: "Organise Your Work with Projects"
+title: "Organise Your Work with Uncertainty Engine Projects"
 sidebarTitle: "Projects"
 description: "Projects are the top-level containers in the Uncertainty Engine, grouping workflows, resources, and team members in one shared workspace."
 ---
 
-A project is the primary organisational unit inside the Uncertainty Engine. Every workflow you build and every resource you upload lives inside a project, so your team always has a single, well-scoped place to collaborate. Projects also act as the namespace for API calls — whenever you run a workflow or fetch a resource you supply the project ID alongside the resource identifier.
+A project is the primary organisational unit inside the Uncertainty Engine. Every workflow you build and every resource you upload lives inside a project, so your team always has a single, well-scoped place to collaborate. Projects also act as the namespace for API calls — whenever you run a workflow or interact with a resource you supply the project ID alongside the resource identifier.
 
 ## What a project contains
 
@@ -16,13 +16,26 @@ Each project holds:
 
 <Note>
   Project IDs appear in every workflow and resource API call. Copy the ID from
-  the web UI project settings page or retrieve it programmatically with the SDK
+  the web UI project settings page, or retrieve it via the REST Resource API
   as shown below.
 </Note>
 
-## List your projects
+## Managing projects
 
-After authenticating, call `client.projects.list()` to fetch every project your organisation owns.
+Projects are created and managed through the **Uncertainty Engine web UI** or via the **REST Resource API**. The Resource API exposes endpoints for listing, creating, and deleting projects, authenticated with the `X-Resource-Service-Token` header.
+
+For example, to list all projects for your organisation:
+
+```http
+GET /api/projects
+X-Resource-Service-Token: <your-token>
+```
+
+See the [Resource API reference](/api-reference/rest-resources) for the full list of project endpoints, including request and response schemas.
+
+## Use project IDs in SDK calls
+
+Once you have a project ID (from the web UI or the Resource API), pass it to SDK methods that operate within a project context:
 
 ```python
 from uncertainty_engine import Client
@@ -30,61 +43,19 @@ from uncertainty_engine import Client
 client = Client()
 client.authenticate()
 
-projects = client.projects.list()
-for project in projects:
-    print(project.id, project.name)
-```
-
-The call returns a list of project objects. Each object exposes at minimum `id` and `name`. Save the `id` value — you will need it whenever you run a workflow or interact with resources inside that project.
-
-## Create a project
-
-Pass a name string to `client.projects.create()` to create a new project. The platform returns the new project object, including the generated project ID.
-
-```python
-from uncertainty_engine import Client
-
-client = Client()
-client.authenticate()
-
-project = client.projects.create(name="My Uncertainty Study")
-print("Created project:", project.id)
-```
-
-<Tip>
-  Choose a descriptive name that reflects the domain or experiment — for
-  example, `"Sensor Calibration — Q3"`. Clear names make it easier for
-  teammates to find the right project in the web UI.
-</Tip>
-
-## Delete a project
-
-Remove a project and all its contents with `client.projects.delete()`. Pass the project ID you want to remove.
-
-```python
-client.projects.delete(project_id="your_project_id")
-```
-
-<Warning>
-  Deleting a project is permanent. All workflows and resources inside the
-  project are also deleted and cannot be recovered. Double-check the project ID
-  before calling `delete`.
-</Warning>
-
-## Use project IDs in other calls
-
-Once you have a project ID, reference it in workflow and resource operations:
-
-```python
 # Run a workflow inside a project
 result = client.run_workflow(
     project_id="your_project_id",
     workflow_id="your_workflow_id",
     inputs=[],
 )
-
-# List resources stored in a project
-resources = client.resources.list(project_id="your_project_id")
+print(result.outputs)
 ```
+
+<Tip>
+  Copy your project ID from the project settings page in the web UI, or
+  retrieve it from the `GET /api/projects` endpoint. You will need it whenever
+  you run a workflow or reference a resource in an SDK call.
+</Tip>
 
 See [Workflows](/platform/workflows) and [Resources](/platform/resources) for full details on these operations.

@@ -1,10 +1,10 @@
 ---
-title: "Upload and Manage Project Resources"
+title: "Upload and Manage Project Resources in the Platform"
 sidebarTitle: "Resources"
 description: "Store datasets, model artefacts, and config files as versioned resources inside a project so workflows can read and write them at run time."
 ---
 
-Resources are files you upload to a project so that workflows can consume them at run time. Common resource types include datasets (tabular data, sensor readings, simulation outputs) and model artefacts (trained weights, calibration files, configuration objects). Resources are scoped to a specific project, and every time you upload a new file for the same resource a new version is created automatically. Workflows always reference the latest version unless you request a specific one.
+Resources are files stored in a project so that workflows can consume them at run time. Common resource types include datasets (tabular data, sensor readings, simulation outputs) and model artefacts (trained weights, calibration files, configuration objects). Resources are scoped to a specific project, and every time you upload a new file for the same resource a new version is created automatically. Workflows always reference the latest version unless you request a specific one.
 
 ## What resources contain
 
@@ -20,9 +20,53 @@ Resources are files you upload to a project so that workflows can consume them a
   </Card>
 </CardGroup>
 
-## Upload a resource
+## Managing resources
 
-Call `client.resources.upload()` with the target project ID, a resource type string, and the local file path. The platform creates the resource (or a new version if the resource already exists) and returns a resource object that includes the assigned ID.
+Resources are created, listed, and managed via the **Uncertainty Engine web UI** or the **REST Resource API**. The Resource API authenticates with the `X-Resource-Service-Token` header and exposes endpoints for uploading file versions, listing resources, and deleting them.
+
+For example, to list all resources in a project:
+
+```http
+GET /api/projects/{project_id}/resources
+X-Resource-Service-Token: <your-token>
+```
+
+To upload a new resource (or a new version of an existing one):
+
+```http
+POST /api/projects/{project_id}/resources
+X-Resource-Service-Token: <your-token>
+Content-Type: multipart/form-data
+
+resource_type=dataset
+file=@data/measurements.csv
+```
+
+See the [Resource API reference](/api-reference/rest-resources) for the complete list of endpoints, request schemas, and response formats.
+
+<Tip>
+  Use consistent `resource_type` values across your team (for example,
+  `"dataset"` and `"model"`) so that resource listings stay organised and
+  workflows can rely on a predictable naming convention.
+</Tip>
+
+## Resource versioning
+
+Each upload for an existing resource creates a new version rather than overwriting the previous one. This means:
+
+- Previous versions remain accessible by specifying the version number in the API request.
+- Workflows that reference a resource without a pinned version automatically use the latest upload.
+- You can roll back to an earlier version by requesting it explicitly via the Resource API.
+
+<Note>
+  Version numbers are integers that increment from `1` with each upload.
+  The resource object returned by the API includes the current `version` field
+  so you always know which revision you are working with.
+</Note>
+
+## Reference resources in SDK calls
+
+When running a workflow that uses resource-management nodes, the project ID and resource identifiers are resolved automatically from the workflow definition. The project ID you pass to `client.run_workflow()` determines which project's resources are accessible.
 
 ```python
 from uncertainty_engine import Client
@@ -30,84 +74,12 @@ from uncertainty_engine import Client
 client = Client()
 client.authenticate()
 
-resource = client.resources.upload(
+result = client.run_workflow(
     project_id="your_project_id",
-    resource_type="dataset",
-    file_path="data/measurements.csv",
+    workflow_id="your_workflow_id",
+    inputs=[],
 )
-print("Uploaded resource ID:", resource.id)
-print("Version:", resource.version)
-```
-
-<Tip>
-  Use consistent `resource_type` strings across your team (for example,
-  `"dataset"` and `"model"`) so that resource listings stay organised and
-  workflows can rely on a predictable naming convention.
-</Tip>
-
-## List resources in a project
-
-Pass a project ID and an optional resource type to `client.resources.list()` to retrieve all matching resources.
-
-```python
-# List all resources in a project
-all_resources = client.resources.list(project_id="your_project_id")
-for r in all_resources:
-    print(r.id, r.resource_type, r.version)
-
-# Narrow to a specific type
-datasets = client.resources.list(
-    project_id="your_project_id",
-    resource_type="dataset",
-)
-for ds in datasets:
-    print(ds.id, ds.name)
-```
-
-## Retrieve a resource
-
-Download or access the content of a specific resource by its ID. Omit the `version` argument to get the latest version.
-
-```python
-# Retrieve the latest version
-resource_data = client.resources.get(
-    project_id="your_project_id",
-    resource_type="dataset",
-    resource_id="your_resource_id",
-)
-
-# Retrieve a specific version
-resource_data = client.resources.get(
-    project_id="your_project_id",
-    resource_type="dataset",
-    resource_id="your_resource_id",
-    version=2,
-)
-```
-
-## Resource versioning
-
-Each call to `client.resources.upload()` for an existing resource creates a new version rather than overwriting the previous one. This means:
-
-- Previous versions remain accessible by specifying the `version` number.
-- Workflows that reference a resource without a pinned version automatically use the latest upload.
-- You can roll back to an earlier version by explicitly requesting it in `client.resources.get()`.
-
-<Note>
-  Version numbers are integers that increment from `1` with each upload.
-  The resource object returned by `upload()` and `list()` includes the current
-  `version` field so you always know which revision you are working with.
-</Note>
-
-## Reference resources in API calls
-
-When you call the REST API directly, resources are addressed by three identifiers: `project_id`, `resource_type`, and `resource_id`. The same identifiers appear in the SDK methods shown above.
-
-```python
-# Full reference pattern used in SDK and REST calls:
-# project_id  : "your_project_id"
-# resource_type: "dataset"
-# resource_id  : "your_resource_id"
+print(result.outputs)
 ```
 
 <Warning>

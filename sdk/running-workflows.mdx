@@ -1,5 +1,5 @@
 ---
-title: "Execute Saved Workflows via the Python SDK"
+title: "Run Saved Workflows with the Uncertainty Engine SDK"
 sidebarTitle: "Running Workflows"
 description: "Run pre-built workflows stored in your organisation's projects, override specific node inputs at runtime, and capture named outputs with the Python SDK."
 ---
@@ -53,7 +53,7 @@ Pass a list of `OverrideWorkflowInput` objects to replace the default value of a
 
 ```python
 from uncertainty_engine import Client
-from uncertainty_engine.workflows import OverrideWorkflowInput
+from uncertainty_engine_types import OverrideWorkflowInput
 
 client = Client()
 client.authenticate()
@@ -86,7 +86,7 @@ By default, `run_workflow` returns whatever outputs the workflow exposes. Use `O
 
 ```python
 from uncertainty_engine import Client
-from uncertainty_engine.workflows import OverrideWorkflowInput, OverrideWorkflowOutput
+from uncertainty_engine_types import OverrideWorkflowInput, OverrideWorkflowOutput
 
 client = Client()
 client.authenticate()
@@ -147,15 +147,15 @@ print(result.outputs)  # {'my_result': 50.0}
 Both `run_workflow` and `job_status` (after `queue_workflow`) return a `JobInfo` object:
 
 <ResponseField name="status" type="JobStatus">
-  The final state of the job: `COMPLETED` on success, `FAILED` on error.
+  The final state of the job: `"completed"` on success, `"failed"` on error.
 </ResponseField>
 
 <ResponseField name="outputs" type="dict">
-  A dictionary of output values keyed by `output_label`. Only populated when `status` is `COMPLETED`.
+  A dictionary of output values keyed by `output_label`. Only populated when `status` is `"completed"`.
 </ResponseField>
 
 <ResponseField name="message" type="str">
-  A human-readable message. Contains error details when `status` is `FAILED`.
+  A human-readable message. Contains error details when `status` is `"failed"`.
 </ResponseField>
 
 ## Finding your project and workflow IDs
@@ -163,7 +163,7 @@ Both `run_workflow` and `job_status` (after `queue_workflow`) return a `JobInfo`
 You can retrieve IDs in two ways:
 
 - **Platform UI**: open your project in the Uncertainty Engine web app. The project ID and workflow ID appear in the URL of the workflow editor page.
-- **SDK**: use `client.workflows` to list workflows in a project programmatically and inspect the returned objects for their IDs.
+- **REST API**: query the `POST /workflows/projects/{project_id}/workflows/{workflow_id}/run` endpoint directly to inspect workflow details, or navigate to your project in the platform UI and copy the IDs from the address bar.
 
 ## Deprecation notice
 

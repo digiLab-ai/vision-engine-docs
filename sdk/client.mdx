@@ -97,7 +97,7 @@ The table below lists every public method on `Client` with a short description. 
 | Method | Description |
 |---|---|
 | `authenticate()` | Exchange your credentials for a session token. Must be called before any other method. |
-| `run_node(node)` | Execute a node synchronously and return a `JobInfo` with outputs. |
+| `run_node(node, inputs)` | Execute a node synchronously and return a `JobInfo` with outputs. |
 | `queue_node(node, inputs)` | Submit a node for async execution and return a `Job` immediately. |
 | `run_workflow(project_id, workflow_id, inputs, outputs)` | Execute a saved workflow synchronously and return a `JobInfo`. |
 | `queue_workflow(project_id, workflow_id, inputs, outputs)` | Submit a saved workflow for async execution and return a `Job`. |
@@ -110,7 +110,7 @@ The table below lists every public method on `Client` with a short description. 
 | `view_tokens()` | Return the number of tokens remaining in your organisation's quota. |
 
 <Tip>
-Not sure which node to use? Call `client.list_nodes()` to browse all available nodes or `client.query_nodes(["regression", "gaussian"])` to search by keyword.
+Not sure which node to use? Call `client.list_nodes()` to browse all available nodes, or `client.query_nodes([...])` with a list of `NodeQuery` objects (from `uncertainty_engine_types`) to search by keyword.
 </Tip>
 
 ## Next steps

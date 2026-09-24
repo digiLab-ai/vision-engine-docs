@@ -1,7 +1,7 @@
 ---
-title: "Uncertainty Engine SDK Changelog"
+title: "Uncertainty Engine Python SDK — Release Changelog"
 sidebarTitle: "Changelog"
-description: "Version history for the uncertainty-engine Python SDK — review recent additions, changes, and deprecations across all releases."
+description: "Version history for the uncertainty-engine Python SDK — review recent additions, changes, and deprecations across all releases here."
 ---
 
 This page tracks the release history of the `uncertainty-engine` Python SDK. The SDK is in **active beta development**, and new versions are published frequently. Review this page before upgrading to understand what has changed.
@@ -45,13 +45,13 @@ This is a patch release focused on keeping the SDK's dependencies up to date. No
 - Added `Client.queue_workflow(...)` — the non-blocking counterpart; use alongside `job_status()` for long-running workflows.
 
   ```python
-  from uncertainty_engine.types import OverrideWorkflowInput, OverrideWorkflowOutput
+  from uncertainty_engine_types import OverrideWorkflowInput, OverrideWorkflowOutput
 
   result = client.run_workflow(
       project_id="my-project",
       workflow_id="my-workflow",
-      inputs=[OverrideWorkflowInput(node="DataLoader", key="path", value="data.csv")],
-      outputs=[OverrideWorkflowOutput(node="Predict", key="predictions")],
+      inputs=[OverrideWorkflowInput(node_label="DataLoader", input_handle="path", value="data.csv")],
+      outputs=[OverrideWorkflowOutput(node_label="Predict", output_handle="predictions", output_label="result")],
   )
   ```
 

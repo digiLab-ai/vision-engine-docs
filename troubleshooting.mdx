@@ -1,5 +1,5 @@
 ---
-title: "Troubleshooting the Uncertainty Engine SDK"
+title: "Troubleshooting Common Uncertainty Engine SDK Errors"
 sidebarTitle: "Troubleshooting"
 description: "Resolve common SDK errors including authentication failures, node and job problems, connectivity issues, installation errors, and token quota questions."
 ---
@@ -278,7 +278,7 @@ Every call to `run_node()` or `run_workflow()` consumes tokens from your organis
 job = client.queue_node(node, inputs)
 
 status = client.job_status(job)
-if status == "succeeded":
+if status.status == "completed":
     # Safe to proceed
     ...
 ```

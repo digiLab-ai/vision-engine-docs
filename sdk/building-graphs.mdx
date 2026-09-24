@@ -1,5 +1,5 @@
 ---
-title: "Build Multi-Node Graphs with the Python SDK"
+title: "Build Multi-Node Graphs with the Uncertainty Engine SDK"
 sidebarTitle: "Building Graphs"
 description: "Compose nodes into directed graphs that wire the output of one node into the input of another, then save and run them as workflows on the platform."
 ---
@@ -95,13 +95,7 @@ When this graph runs, `add_1` computes `1 + 2 = 3`, which becomes the `lhs` of `
 
 ## Visualising a graph
 
-If you installed the `vis` extra (`pip install "uncertainty-engine[vis]"`), you can render a graph as a visual diagram to verify your wiring before execution:
-
-```python
-graph.visualise()
-```
-
-This opens a matplotlib figure showing each node as a labelled box with directed edges between them.
+If you installed the `vis` extra (`pip install "uncertainty-engine[vis]"`), the SDK includes `matplotlib` and `networkx` to support graph visualisation. Refer to your SDK version's release notes or source for the specific visualisation API available in your installed version.
 
 <Tip>
 Visualising your graph before saving it to the platform is a quick way to catch wiring mistakes without consuming any tokens.

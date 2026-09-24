@@ -1,5 +1,5 @@
 ---
-title: "Node Library: Every Node on the Platform"
+title: "Uncertainty Engine Node Library: All Node Categories"
 sidebarTitle: "Overview"
 description: "Browse every node category on the Uncertainty Engine — from arithmetic utilities to machine learning, sensor design, and resource management."
 ---
@@ -53,10 +53,18 @@ print(info.outputs)
 versions = client.get_node_versions("Add")
 ```
 
-You can also search the library by keyword using `query_nodes`:
+You can also search the library by passing a list of `NodeQuery` objects to `query_nodes`. The result is a dictionary keyed by `"node_id@version"`:
 
 ```python
-results = client.query_nodes(["regression", "predict"])
+from uncertainty_engine import Client
+from uncertainty_engine_types import NodeQuery
+
+client = Client()
+client.authenticate()
+
+results = client.query_nodes([NodeQuery("regression"), NodeQuery("predict")])
+for key, info in results.items():
+    print(key, info)
 ```
 
 ## Node versioning

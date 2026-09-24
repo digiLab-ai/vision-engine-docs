@@ -1,5 +1,5 @@
 ---
-title: "Run Nodes with the Python SDK"
+title: "Run and Queue Nodes with the Uncertainty Engine SDK"
 sidebarTitle: "Running Nodes"
 description: "Execute individual nodes synchronously or asynchronously, poll job status, and cancel in-progress work using the Uncertainty Engine Python SDK."
 ---
@@ -44,7 +44,7 @@ print(job.node_id, job.job_id)
 # ... do other work here ...
 
 status = client.job_status(job)
-print(status.status)   # JobStatus.COMPLETED
+print(status.status)   # 'completed'
 print(status.outputs)  # {'ans': 7.0}
 ```
 
@@ -64,12 +64,17 @@ Poll an async job with `job_status`. It returns a `JobInfo` each time you call i
 
 ```python
 import time
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.basic import Add
+
+client = Client()
+client.authenticate()
 
 job = client.queue_node(Add(lhs=10, rhs=20))
 
 while True:
     info = client.job_status(job)
-    if info.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+    if info.status in ("completed", "failed"):
         break
     time.sleep(2)
 
@@ -80,10 +85,10 @@ print(info.outputs)
 
 | Value | Meaning |
 |---|---|
-| `JobStatus.PENDING` | The job is queued and waiting for a worker. |
-| `JobStatus.RUNNING` | The job is actively being processed. |
-| `JobStatus.COMPLETED` | The job finished successfully. Outputs are available. |
-| `JobStatus.FAILED` | The job encountered an error. Check `info.message` for details. |
+| `"pending"` | The job is queued and waiting for a worker. |
+| `"running"` | The job is actively being processed. |
+| `"completed"` | The job finished successfully. Outputs are available. |
+| `"failed"` | The job encountered an error. Check `info.message` for details. |
 
 ### `JobInfo` fields
 
@@ -92,7 +97,7 @@ print(info.outputs)
 </ResponseField>
 
 <ResponseField name="message" type="str">
-  A human-readable message. Contains error details when `status` is `FAILED`.
+  A human-readable message. Contains error details when `status` is `"failed"`.
 </ResponseField>
 
 <ResponseField name="inputs" type="dict">
@@ -100,7 +105,7 @@ print(info.outputs)
 </ResponseField>
 
 <ResponseField name="outputs" type="dict">
-  The outputs produced by the node. Only populated when `status` is `COMPLETED`.
+  The outputs produced by the node. Only populated when `status` is `"completed"`.
 </ResponseField>
 
 ## Cancelling a job
@@ -129,8 +134,9 @@ nodes = client.list_nodes(category="nodes.basic")
 # Get the input/output schema for a specific node
 info = client.get_node_info("Add", version="1.0.0")
 
-# Search by keyword
-results = client.query_nodes(["addition", "arithmetic"])
+# Search by keyword using NodeQuery objects
+from uncertainty_engine_types import NodeQuery
+results = client.query_nodes([NodeQuery("addition"), NodeQuery("arithmetic")])
 ```
 
 Node categories include `nodes.basic`, `nodes.machine_learning`, `nodes.sensor_designer`, `nodes.resource_management`, and `nodes.workflow`.

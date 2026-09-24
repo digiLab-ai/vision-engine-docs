@@ -1,5 +1,5 @@
 ---
-title: "Machine Learning Nodes: Train and Predict"
+title: "Machine Learning Nodes: Train Probabilistic Surrogates"
 sidebarTitle: "Machine Learning"
 description: "Train probabilistic surrogate models, make uncertainty-aware predictions, and evaluate performance — all with quantified confidence intervals."
 ---
@@ -81,24 +81,36 @@ Prediction nodes accept a trained model reference and a set of input features, t
 
 ## Code example
 
-The example below trains a model on a stored dataset and then uses it to make predictions. Import the specific training and prediction node classes you need; the exact class names for your use case are available via `client.list_nodes`.
+The example below shows how to discover available machine learning nodes, inspect their schemas, and run them via the client. Because exact node class names depend on the platform version, always use `client.list_nodes` to find the current names before importing or invoking them.
 
 ```python
 from uncertainty_engine import Client
-from uncertainty_engine.nodes.machine_learning import Train, Predict
 
 client = Client()
 client.authenticate()
 
-# Train a model on a project dataset
+# Discover all available machine learning nodes
+ml_nodes = client.list_nodes(category="MachineLearning")
+for node in ml_nodes:
+    print(node["node_id"], node.get("description", ""))
+
+# Inspect the input/output schema for a specific node
+# Replace "TrainModel" and "1.0.0" with values returned by list_nodes above
+info = client.get_node_info("TrainModel", "1.0.0")
+print(info.inputs)
+print(info.outputs)
+
+# Run a training node using the node_id and inputs from its schema
 train_result = client.run_node(
-    Train(dataset="project_id/dataset_id", ...)
+    node="TrainModel@1.0.0",
+    inputs={"dataset": "project_id/dataset_id", ...}
 )
 model_ref = train_result.outputs["model"]
 
-# Make predictions using the trained model
+# Run a prediction node
 predict_result = client.run_node(
-    Predict(model=model_ref, inputs=...)
+    node="PredictModel@1.0.0",
+    inputs={"model": model_ref, "inputs": [...]}
 )
 
 # Outputs include mean predictions and uncertainty estimates
@@ -106,7 +118,7 @@ print(predict_result.outputs)  # includes mean and variance/confidence
 ```
 
 <Note>
-  The class names `Train` and `Predict` above are illustrative. Discover the exact node names and their parameter schemas for your use case with `client.list_nodes(category="MachineLearning")` and `client.get_node_info(node_name, version)`.
+  Node class names such as `TrainModel` and `PredictModel` are illustrative placeholders. Use `client.list_nodes(category="MachineLearning")` to retrieve the exact node identifiers available in your environment, then pass them to `client.get_node_info(node_id, version)` to confirm the required input and output fields.
 </Note>
 
 ## Use cases

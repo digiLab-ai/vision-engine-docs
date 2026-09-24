@@ -1,5 +1,5 @@
 ---
-title: "Client Class: Full SDK API Reference"
+title: "Client Class — Uncertainty Engine SDK API Reference"
 sidebarTitle: "Client"
 description: "Complete reference for the Client class — all methods, parameters, and return types for authenticating, running nodes and workflows, and managing jobs."
 ---
@@ -24,7 +24,7 @@ client.authenticate()     # reads credentials from env vars
 node = Add(a=1, b=2)
 result = client.run_node(node)
 
-print(result.status)      # "succeeded"
+print(result.status)      # "completed"
 print(result.outputs)     # {"result": 3}
 ```
 
@@ -52,12 +52,12 @@ client = Client()
 # Development
 client = Client(env="dev")
 
-# Custom deployment
+# Custom deployment (values provided with your account credentials)
 client = Client(env=Environment(
-    cognito_user_pool_client_id="3vj5pe253j4v070euqjdk38a24",
-    core_api="https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com",
-    region="eu-west-2",
-    resource_api="https://m90q55iux6.execute-api.eu-west-2.amazonaws.com",
+    cognito_user_pool_client_id="<your_cognito_client_id>",
+    core_api="<your_core_api_url>",
+    region="<your_region>",
+    resource_api="<your_resource_api_url>",
 ))
 ```
 
@@ -98,7 +98,7 @@ client.authenticate()
 
 ### `run_node(node, inputs)`
 
-Submits a node for execution and **blocks** until the job reaches a terminal state (succeeded or failed), then returns the full result.
+Submits a node for execution and **blocks** until the job reaches a terminal state (completed or failed), then returns the full result.
 
 <ParamField path="node" type="Node | str" required>
   The node to execute. Pass a node instance (e.g. `Add(a=1, b=2)`) or a node
@@ -118,7 +118,7 @@ Submits a node for execution and **blocks** until the job reaches a terminal sta
 
   <Expandable title="JobInfo fields">
     <ResponseField name="status" type="str">
-      Terminal status of the job — `"succeeded"` or `"failed"`.
+      Terminal status of the job — `"completed"` or `"failed"`.
     </ResponseField>
     <ResponseField name="message" type="str">
       Human-readable status message or error description.
@@ -298,7 +298,7 @@ job = client.queue_node(Add(a=1, b=2))
 
 while True:
     info = client.job_status(job)
-    if info.status in ("succeeded", "failed"):
+    if info.status in ("completed", "failed"):
         break
     time.sleep(2)
 

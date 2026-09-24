@@ -1,5 +1,5 @@
 ---
-title: "Sensor Designer Nodes: Optimise Under Uncertainty"
+title: "Sensor Designer Nodes: Optimise Sensor Configurations"
 sidebarTitle: "Sensor Designer"
 description: "Design optimal sensor placements and configurations using uncertainty quantification to maximise information gain in any monitoring application."
 ---
@@ -52,19 +52,32 @@ from uncertainty_engine_types import SensorDesigner, save_sensor_designer
 
 ## Code example
 
+The example below shows how to discover available sensor designer nodes, inspect their schemas, and run an optimisation via the client. Use `client.list_nodes` to find current node identifiers before running them.
+
 ```python
 from uncertainty_engine import Client
-from uncertainty_engine.nodes.sensor_designer import OptimiseSensors
 
 client = Client()
 client.authenticate()
 
-# Run a sensor optimisation with a stored design configuration
+# Discover all available sensor designer nodes
+sd_nodes = client.list_nodes(category="SensorDesigner")
+for node in sd_nodes:
+    print(node["node_id"], node.get("description", ""))
+
+# Inspect the input/output schema for a specific node
+# Replace "OptimiseSensors" and "1.0.0" with values returned by list_nodes above
+info = client.get_node_info("OptimiseSensors", "1.0.0")
+print(info.inputs)
+print(info.outputs)
+
+# Run the optimisation node with a stored design configuration
 result = client.run_node(
-    OptimiseSensors(
-        sensor_designer="project_id/sensor_designer_id",
-        n_sensors=5
-    )
+    node="OptimiseSensors@1.0.0",
+    inputs={
+        "sensor_designer": "project_id/sensor_designer_id",
+        "n_sensors": 5
+    }
 )
 
 # Inspect the optimised sensor placement and objective value
@@ -72,7 +85,7 @@ print(result.outputs)
 ```
 
 <Note>
-  The class name `OptimiseSensors` and its parameter names above are illustrative. Discover the exact node names and parameter schemas for your use case with `client.list_nodes(category="SensorDesigner")` and `client.get_node_info(node_name, version)`.
+  The node identifier <code>OptimiseSensors</code> above is illustrative. Use <code>client.list_nodes(category="SensorDesigner")</code> to retrieve the exact node identifiers available in your environment, then call <code>client.get_node_info(node_id, version)</code> to confirm the required input and output fields.
 </Note>
 
 ## Saving a sensor designer configuration

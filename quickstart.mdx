@@ -1,7 +1,7 @@
 ---
-title: "Get Started with the Uncertainty Engine SDK"
+title: "Quickstart: Run Your First Uncertainty Engine Node"
 sidebarTitle: "Quickstart"
-description: "Install the Uncertainty Engine Python SDK, set your credentials, and run your first node in minutes with this step-by-step guide."
+description: "Install the Uncertainty Engine Python SDK, set your credentials, and run your first node computation in minutes with this step-by-step guide."
 ---
 
 The fastest way to experience the Uncertainty Engine is through its Python SDK. This guide walks you from a fresh Python environment to a running computation in five steps. By the end you will have authenticated against the platform, executed a node, and seen how to discover the full node library — the foundation for everything else you will build.
@@ -100,18 +100,25 @@ The fastest way to experience the Uncertainty Engine is through its Python SDK. 
     print(all_nodes)
     ```
 
-    To get detailed information about a specific node — including its input/output schema and available versions — use `get_node_info`:
+    To get detailed information about a specific node — including its input/output schema — use `get_node_info`. You must supply both the node identifier and a version string. To discover available versions first, call `get_node_versions`:
 
     ```python
-    info = client.get_node_info(node="Add")
+    # Find out which versions of a node exist
+    versions = client.get_node_versions("Add")
+    print(versions)  # e.g. ['0.1.0', '0.2.0']
+
+    # Get the full input/output schema for a specific version
+    info = client.get_node_info(node="Add", version="0.1.0")
     print(info)
     ```
 
-    You can also search the library by keyword using `query_nodes`:
+    To search the node library by keyword, use `query_nodes` with a list of `NodeQuery` objects:
 
     ```python
-    results = client.query_nodes(queries=["gaussian process", "regression"])
-    print(results)
+    from uncertainty_engine_types import NodeQuery
+
+    results = client.query_nodes(queries=[NodeQuery("gaussian process"), NodeQuery("regression")])
+    print(results)  # dict keyed "node_id@version"
     ```
   </Step>
 </Steps>

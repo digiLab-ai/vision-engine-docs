@@ -1,5 +1,5 @@
 ---
-title: "Core Concepts: Nodes, Graphs, and Workflows"
+title: "Core Concepts: Nodes, Graphs, and Workflows Explained"
 sidebarTitle: "Concepts"
 description: "Understand the fundamental building blocks of the Uncertainty Engine: nodes, graphs, workflows, jobs, projects, resources, and tokens."
 ---
@@ -48,14 +48,15 @@ Values that are not wired from another node's output must be supplied as **exter
 The following graph passes the output of a `Number` node into the left-hand side of an `Add` node, and supplies the right-hand side as a fixed external input:
 
 ```python
+from uncertainty_engine.graph import Graph
 from uncertainty_engine.nodes.basic import Add, Number
 
 # Define the nodes
 number_node = Number(value=10)
 add_node = Add()
 
-# Build the graph
-graph = Graph()
+# Build the graph (prevent_node_overwrite=True avoids a FutureWarning)
+graph = Graph(prevent_node_overwrite=True)
 graph.add_node(number_node, label="my_number")
 graph.add_node(add_node, label="my_add")
 

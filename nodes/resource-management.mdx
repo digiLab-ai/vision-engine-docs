@@ -1,5 +1,5 @@
 ---
-title: "Resource Management Nodes: Files in Workflows"
+title: "Resource Management Nodes: Manage Files in Workflows"
 sidebarTitle: "Resource Management"
 description: "Read and write datasets, model artefacts, and other project files from within workflows, keeping data flowing seamlessly between every step."
 ---
@@ -32,77 +32,98 @@ df = tabular_data.to_dataframe()
   pandas integration requires the `data` optional extra. Install it with `pip install "uncertainty-engine[data]"`.
 </Note>
 
+## Discovering resource management nodes
+
+Use `client.list_nodes` to retrieve the current set of resource management node identifiers and `client.get_node_info` to inspect their input and output schemas before building your workflow.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+# Discover all available resource management nodes
+rm_nodes = client.list_nodes(category="ResourceManagement")
+for node in rm_nodes:
+    print(node["node_id"], node.get("description", ""))
+
+# Inspect the schema for a specific node
+# Replace "LoadResource" and "1.0.0" with values returned by list_nodes above
+info = client.get_node_info("LoadResource", "1.0.0")
+print(info.inputs)
+print(info.outputs)
+```
+
 ## Building a workflow with resource nodes
 
-The example below constructs a `Graph` that loads a dataset from project storage and passes it directly to a prediction node. The `add_edge` call wires the `data` output of the load step to the `inputs` port of the predict step, so the platform resolves the connection automatically at runtime.
+The pattern below shows how to construct a `Graph` that loads a dataset from project storage, passes it to a processing node, and saves the result back. Use `client.list_nodes(category="ResourceManagement")` to confirm the exact node identifiers for load and save operations in your environment.
 
 ```python
 from uncertainty_engine import Client
 from uncertainty_engine.graph import Graph
-from uncertainty_engine.nodes.resource_management import LoadResource
-from uncertainty_engine.nodes.machine_learning import Predict
+
+client = Client()
+client.authenticate()
 
 # Build the workflow graph
 graph = Graph(prevent_node_overwrite=True)
 
-graph.add_node(
-    LoadResource(project_id="proj_id", resource_id="dataset_id"),
-    label="load"
-)
-graph.add_node(
-    Predict(model="model_id", inputs=None),
-    label="predict"
-)
+# Add a load node — replace "LoadResource@1.0.0" with the actual node_id@version
+graph.add_node(node="LoadResource@1.0.0", label="load")
 
-# Wire the dataset output of "load" into the inputs port of "predict"
-graph.add_edge("load", "data", "predict", "inputs")
+# Add a processing node — replace with the actual node identifier
+graph.add_node(node="ProcessData@1.0.0", label="process")
+
+# Add a save node — replace "SaveResource@1.0.0" with the actual node_id@version
+graph.add_node(node="SaveResource@1.0.0", label="save")
+
+# Wire the dataset output of "load" into the processing node
+graph.add_edge("load", "data", "process", "inputs")
+
+# Wire the processing output into the save node
+graph.add_edge("process", "outputs", "save", "data")
+
+# Add any external inputs the graph requires
+graph.add_input("project_id", "proj_id")
+graph.add_input("resource_id", "dataset_id")
 ```
 
 Once the graph is built, run it through the client:
 
 ```python
-client = Client()
-client.authenticate()
-
 result = client.run_workflow(
     project_id="proj_id",
     workflow_id="workflow_id",
     inputs={},
-    outputs=["predict"]
+    outputs=["save"]
 )
 print(result)
 ```
 
 <Note>
-  The class names `LoadResource` and `Predict` above are illustrative. Discover the exact node names and parameter schemas with `client.list_nodes(category="ResourceManagement")` and `client.get_node_info(node_name, version)`.
+  Node identifiers such as <code>LoadResource@1.0.0</code>, <code>ProcessData@1.0.0</code>, and <code>SaveResource@1.0.0</code> are illustrative placeholders. Use <code>client.list_nodes(category="ResourceManagement")</code> to retrieve the exact identifiers available in your environment, then call <code>client.get_node_info(node_id, version)</code> to confirm the required input and output fields before wiring edges.
 </Note>
 
 ## Typical operations
 
 <AccordionGroup>
   <Accordion title="Load a dataset from a project">
-    Reference a stored dataset by its project and resource identifiers. The node retrieves the latest version of the resource unless you specify a version explicitly.
+    Reference a stored dataset by its project and resource identifiers. Discover the exact load node name with `client.list_nodes(category="ResourceManagement")`, then add it to your graph:
 
     ```python
-    from uncertainty_engine.nodes.resource_management import LoadResource
-
-    graph.add_node(
-        LoadResource(project_id="proj_id", resource_id="dataset_id"),
-        label="load_data"
-    )
+    # Replace "LoadResource@1.0.0" with the actual node_id@version
+    graph.add_node(node="LoadResource@1.0.0", label="load_data")
     ```
+
+    The node retrieves the latest version of the resource unless you specify a version explicitly via its input schema.
   </Accordion>
   <Accordion title="Save a node output as a new resource">
     Write a node's output back to project storage. Saving creates a new resource version, preserving previous versions for reproducibility.
 
     ```python
-    from uncertainty_engine.nodes.resource_management import SaveResource
-
-    graph.add_node(
-        SaveResource(project_id="proj_id", resource_name="predictions"),
-        label="save_output"
-    )
-    graph.add_edge("predict", "mean", "save_output", "data")
+    # Replace "SaveResource@1.0.0" with the actual node_id@version
+    graph.add_node(node="SaveResource@1.0.0", label="save_output")
+    graph.add_edge("process", "mean", "save_output", "data")
     ```
   </Accordion>
 </AccordionGroup>
