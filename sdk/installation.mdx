@@ -1,0 +1,80 @@
+---
+title: "Install the Uncertainty Engine Python SDK"
+sidebarTitle: "Installation"
+description: "Install the uncertainty-engine package via pip, with optional extras for data processing, Jupyter notebook support, and graph visualisation."
+---
+
+The Uncertainty Engine Python SDK lets you build, test, and deploy uncertainty-aware AI workflows programmatically. Before you can authenticate and start running nodes, you need to install the package and confirm your environment meets the requirements.
+
+## Requirements
+
+- **Python**: 3.10 or later, below 3.14
+- **Account**: a valid Uncertainty Engine account (contact your organisation administrator if you don't have one)
+
+## Basic installation
+
+Install the core package from PyPI using pip:
+
+```bash
+pip install uncertainty-engine
+```
+
+This gives you the `Client`, `Environment`, and all built-in node classes — everything you need to authenticate and run nodes or workflows.
+
+## Optional extras
+
+The SDK ships several optional dependency groups. Install only what your project needs to keep your environment lean.
+
+| Extra | What it adds |
+|---|---|
+| `data` | `numpy` and `pandas` for data processing and array manipulation |
+| `notebook` | `ipykernel` for running the SDK inside Jupyter notebooks |
+| `vis` | `matplotlib` and `networkx` for visualising node graphs |
+
+Install one or more extras by listing them in square brackets:
+
+```bash
+pip install "uncertainty-engine[data,notebook,vis]"
+```
+
+## Package manager variants
+
+<CodeGroup>
+
+```bash pip
+# Core only
+pip install uncertainty-engine
+
+# With all optional extras
+pip install "uncertainty-engine[data,notebook,vis]"
+
+# Pin to a specific version (recommended in production)
+pip install "uncertainty-engine==0.14.1"
+```
+
+```bash poetry
+# Core only
+poetry add uncertainty-engine
+
+# With all optional extras
+poetry add "uncertainty-engine[data,notebook,vis]"
+
+# Pin to a specific version (recommended in production)
+poetry add "uncertainty-engine==0.14.1"
+```
+
+</CodeGroup>
+
+## Verify the installation
+
+After installing, confirm the SDK is importable and ready to use:
+
+```bash
+python -c "from uncertainty_engine import Client; print('OK')"
+```
+
+If you see `OK` printed to the terminal, the SDK is installed correctly. If you see an `ImportError`, double-check that you are using Python 3.10+ and that the package installed into the correct environment.
+
+<Note>
+The Uncertainty Engine SDK is currently in **beta**. APIs may change between minor releases. Pin your dependency to a specific version (for example `uncertainty-engine==0.14.1`) in production environments to avoid unexpected breaking changes when you update.
+</Note>

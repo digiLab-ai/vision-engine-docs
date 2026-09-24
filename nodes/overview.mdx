@@ -1,0 +1,90 @@
+---
+title: "Node Library: Every Node on the Platform"
+sidebarTitle: "Overview"
+description: "Browse every node category on the Uncertainty Engine — from arithmetic utilities to machine learning, sensor design, and resource management."
+---
+
+Nodes are the discrete, versioned computational units that power every workflow on the Uncertainty Engine. Each node accepts a defined set of inputs, performs a specific operation on the platform's infrastructure, and returns structured outputs. Because nodes are independently versioned, you can pin a particular version in production while continuing to experiment with newer releases in development.
+
+## Node categories
+
+The platform organises nodes into five categories. Each category groups nodes that share a common purpose, so you can quickly find the right building block for your workflow.
+
+<CardGroup cols={2}>
+  <Card title="Basic" icon="calculator">
+    Arithmetic and utility operations for common data transformations. Includes nodes such as **Add** and **Number** that form the scaffolding of any workflow.
+  </Card>
+  <Card title="Machine Learning" icon="brain" href="/nodes/machine-learning">
+    Train probabilistic surrogate models, make uncertainty-aware predictions, and evaluate model accuracy — all within a single workflow.
+  </Card>
+  <Card title="Sensor Designer" icon="sensor" href="/nodes/sensor-designer">
+    Optimise sensor placement and configuration problems under uncertainty, maximising information gain for your application.
+  </Card>
+  <Card title="Resource Management" icon="folder-open" href="/nodes/resource-management">
+    Upload, download, and reference files and datasets stored within your projects, keeping data in sync across workflow steps.
+  </Card>
+  <Card title="Workflow" icon="diagram-project">
+    Control flow and orchestration nodes that let you compose, branch, and sequence other workflows programmatically.
+  </Card>
+</CardGroup>
+
+## Discover nodes programmatically
+
+You can explore the full node library at any time using the `Client`. Use `list_nodes` to retrieve every available node, optionally filtered by category, and `get_node_info` to inspect the exact inputs and outputs a specific node version expects.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+# List all nodes across every category
+all_nodes = client.list_nodes()
+
+# Filter by category
+ml_nodes = client.list_nodes(category="MachineLearning")
+
+# Get details for a specific node and version
+info = client.get_node_info("Add", "0.2.0")
+print(info.inputs)
+print(info.outputs)
+
+# List all available versions of a node
+versions = client.get_node_versions("Add")
+```
+
+You can also search the library by keyword using `query_nodes`:
+
+```python
+results = client.query_nodes(["regression", "predict"])
+```
+
+## Node versioning
+
+Every node on the platform carries a semantic version number. When you call `get_node_info`, always specify the version you intend to use so that the inputs and outputs you inspect match what the node actually receives at runtime.
+
+<Note>
+  Pin node versions in production workflows. The platform may introduce new node versions that change input or output schemas. Unversioned references default to the latest release, which can cause unexpected behaviour after a platform update.
+</Note>
+
+Use `get_node_versions` to list every published version of a node and confirm which release is current:
+
+```python
+versions = client.get_node_versions("Add")
+for v in versions:
+    print(v)
+```
+
+## Explore by category
+
+<CardGroup cols={3}>
+  <Card title="Machine Learning" icon="brain" href="/nodes/machine-learning">
+    Train and predict with probabilistic models
+  </Card>
+  <Card title="Sensor Designer" icon="sensor" href="/nodes/sensor-designer">
+    Optimise sensor configurations under uncertainty
+  </Card>
+  <Card title="Resource Management" icon="folder-open" href="/nodes/resource-management">
+    Read and write project files in workflows
+  </Card>
+</CardGroup>

@@ -1,0 +1,250 @@
+---
+title: "Graph Class: Compose Node Pipelines"
+sidebarTitle: "Graph"
+description: "Complete reference for the Graph class — build directed node pipelines by adding labelled nodes, wiring edges between handles, and supplying external inputs."
+---
+
+The `Graph` class lets you assemble multi-node pipelines entirely in Python before submitting them for execution. You add nodes with unique labels, connect their input and output handles with edges, and supply any fixed values through external inputs. The resulting graph can be run or queued via the `Client` just like a single node.
+
+## Quick start
+
+The example below builds a two-node pipeline that feeds a fixed number into an `Add` node and runs the result:
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.graph import Graph
+from uncertainty_engine.nodes.basic import Add, Number
+
+client = Client()
+client.authenticate()
+
+graph = Graph(prevent_node_overwrite=True)
+
+# Add nodes with unique labels
+graph.add_node(Number, label="my_number", version=1)
+graph.add_node(Add,    label="my_add",    version=1)
+
+# Wire the Number output into the Add left-hand input
+graph.add_edge(
+    source="my_number", source_key="result",
+    target="my_add",    target_key="a",
+)
+
+# Supply external input values
+graph.add_input(key="my_number_value", value=7)
+graph.add_input(key="my_add_b",        value=3)
+
+result = client.run_node(graph)
+print(result.outputs)  # {"result": 10}
+```
+
+---
+
+## Constructor
+
+### `Graph(external_input_id, prevent_node_overwrite)`
+
+Creates a new, empty graph.
+
+<ParamField path="external_input_id" type="str" default='"_"'>
+  The identifier used to represent the external input source in the compiled
+  graph specification. You rarely need to change this; use the default `"_"`
+  unless you have a specific reason to override it.
+</ParamField>
+
+<ParamField path="prevent_node_overwrite" type="bool" required>
+  Controls behaviour when a duplicate node label is added.
+
+  - `True` — raises `GraphValidationError` if you attempt to add a second node
+    with a label that already exists in the graph. Recommended for production
+    code.
+  - `False` — silently overwrites the existing node.
+
+  <Warning>
+    Omitting this parameter raises a `FutureWarning`. Always set it explicitly
+    so your code behaves predictably when the default changes in a future
+    release.
+  </Warning>
+</ParamField>
+
+```python
+from uncertainty_engine.graph import Graph
+
+# Recommended: opt in to strict duplicate checking
+graph = Graph(prevent_node_overwrite=True)
+```
+
+---
+
+## Methods
+
+### `add_node(node, label, version)`
+
+Adds a single node to the graph and assigns it a unique label. The label identifies this node when you create edges or reference it elsewhere.
+
+<ParamField path="node" type="Node | Type[Node]" required>
+  The node to add. Pass either a node class (e.g. `Add`) or a pre-configured
+  node instance. When passing a class you must supply `version`; when passing
+  an instance the version is already embedded in the object.
+</ParamField>
+
+<ParamField path="label" type="str | None" default="None">
+  A unique string label for this node within the graph. Required if the node
+  class does not define a `label` attribute. Must be unique across all nodes
+  already added to the graph (when `prevent_node_overwrite=True`).
+</ParamField>
+
+<ParamField path="version" type="str | int | None" default="None">
+  The version of the node to use. Required when `node` is a class; ignored
+  when `node` is an instance (the instance already carries version
+  information).
+</ParamField>
+
+**Raises**
+
+| Exception | Condition |
+|---|---|
+| `ValueError` | `label` is `None` and the node has no `label` attribute |
+| `GraphValidationError` | Label already exists and `prevent_node_overwrite=True` |
+
+```python
+from uncertainty_engine.nodes.basic import Add, Number
+
+graph.add_node(Number, label="input_number", version=1)
+graph.add_node(Add,    label="adder",        version=1)
+```
+
+---
+
+### `add_nodes_from(nodes)`
+
+Adds multiple node instances to the graph in a single call. Each node in the list must already have a label attribute; labels must be unique across the graph.
+
+<ParamField path="nodes" type="list[Node]" required>
+  A list of configured node instances to add. Nodes are added in list order.
+</ParamField>
+
+```python
+from uncertainty_engine.nodes.basic import Add, Number
+
+number_node = Number(label="n1", version=1)
+add_node    = Add(label="sum", version=1)
+
+graph.add_nodes_from([number_node, add_node])
+```
+
+---
+
+### `add_edge(source, source_key, target, target_key)`
+
+Connects an output handle on one node to an input handle on another node, creating a directed data-flow edge.
+
+<ParamField path="source" type="str" required>
+  The label of the node whose output you want to connect from.
+</ParamField>
+
+<ParamField path="source_key" type="str" required>
+  The name of the output handle on the source node (e.g. `"result"`).
+</ParamField>
+
+<ParamField path="target" type="str" required>
+  The label of the node whose input you want to connect to.
+</ParamField>
+
+<ParamField path="target_key" type="str" required>
+  The name of the input handle on the target node (e.g. `"a"`).
+</ParamField>
+
+<Tip>
+  Use `client.get_node_info(node_id, version)` to discover the exact handle
+  names for any node before wiring edges.
+</Tip>
+
+```python
+graph.add_edge(
+    source="input_number", source_key="result",
+    target="adder",        target_key="a",
+)
+```
+
+---
+
+### `add_input(key, value)`
+
+Assigns a fixed value to an external input slot. External inputs let you pass data into the graph from outside without hardcoding values inside the node definitions.
+
+<ParamField path="key" type="str" required>
+  The external input key, formatted as `"label_handle"` — the node label and
+  the input handle name joined with an underscore. For example, `"adder_b"`
+  targets the `b` handle of the node labelled `"adder"`.
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The value to assign to this input slot. The type must match what the target
+  handle expects.
+</ParamField>
+
+```python
+# Supply the value 42 to the "value" handle of the node labelled "input_number"
+graph.add_input(key="input_number_value", value=42)
+
+# Supply the right-hand operand for "adder"
+graph.add_input(key="adder_b", value=8)
+```
+
+---
+
+### `validate_label_is_unique(label)`
+
+Checks that the given label is not already in use within the graph. Called automatically by `add_node()` when `prevent_node_overwrite=True`, but you can also call it directly for explicit pre-flight checks.
+
+<ParamField path="label" type="str" required>
+  The label to validate.
+</ParamField>
+
+**Raises**
+
+| Exception | Condition |
+|---|---|
+| `GraphValidationError` | The label is already assigned to a node in the graph |
+
+```python
+try:
+    graph.validate_label_is_unique("adder")
+except GraphValidationError:
+    print("Label 'adder' is already in use — choose a different name.")
+```
+
+---
+
+## Full worked example
+
+The example below builds a three-step pipeline: two `Number` nodes feed into a single `Add` node, with both number values supplied as external inputs.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.graph import Graph
+from uncertainty_engine.nodes.basic import Add, Number
+
+client = Client()
+client.authenticate()
+
+graph = Graph(prevent_node_overwrite=True)
+
+# Add three nodes
+graph.add_node(Number, label="left",  version=1)
+graph.add_node(Number, label="right", version=1)
+graph.add_node(Add,    label="sum",   version=1)
+
+# Connect Number outputs → Add inputs
+graph.add_edge(source="left",  source_key="result", target="sum", target_key="a")
+graph.add_edge(source="right", source_key="result", target="sum", target_key="b")
+
+# Supply external input values
+graph.add_input(key="left_value",  value=15)
+graph.add_input(key="right_value", value=27)
+
+# Run the graph and inspect the result
+result = client.run_node(graph)
+print(result.outputs)  # {"result": 42}
+```

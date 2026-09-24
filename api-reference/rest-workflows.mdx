@@ -1,0 +1,359 @@
+---
+title: "REST API Reference: Workflow Execution Endpoints"
+sidebarTitle: "Workflow Endpoints"
+description: "REST endpoints for running saved workflows within projects, polling for results, and managing workflow records via the Resource API."
+---
+
+Workflows in the Uncertainty Engine are saved graphs of connected nodes that you build in the visual editor or define programmatically. Two separate APIs are involved in working with workflows: the **Core API** handles execution (running a workflow and retrieving results), while the **Resource API** handles management (listing, creating, and deleting workflow records within a project). This page documents both.
+
+<Note>
+  The Python SDK's `client.run_workflow()` and `client.queue_workflow()` methods wrap the Core API execution endpoint and manage polling for you. If you are working in Python, those methods are the easiest path. The REST endpoints documented here are for integrations built outside of Python.
+</Note>
+
+---
+
+## Core API — workflow execution
+
+### Run a workflow
+
+```
+POST /workflows/projects/{project_id}/workflows/{workflow_id}/run
+```
+
+Queues a saved workflow for execution and immediately returns a job ID. Supply input values to override the workflow's default inputs, and specify which output handles to capture. Once queued, poll the node status endpoint at `GET /nodes/status/Workflow/{job_id}` to retrieve results.
+
+#### Path parameters
+
+<ParamField path="project_id" type="string" required>
+  The unique identifier of the project that contains the workflow. You can find this in the web UI under your project settings, or by calling `GET /api/projects` on the Resource API.
+</ParamField>
+
+<ParamField path="workflow_id" type="string" required>
+  The unique identifier of the workflow to execute. Retrieve this from `GET /api/projects/{project_id}/workflows` on the Resource API.
+</ParamField>
+
+#### Request body
+
+The request body is optional. If omitted, the workflow runs with its saved default inputs.
+
+<ParamField body="inputs" type="array" optional>
+  A list of input override objects. Each object identifies a node in the workflow by its label and specifies the value to inject.
+
+  <Expandable title="Input override object">
+    <ParamField body="node_label" type="string" required>
+      The label of the node inside the workflow that you want to supply a value to.
+    </ParamField>
+    <ParamField body="input_handle" type="string" required>
+      The name of the input handle on that node.
+    </ParamField>
+    <ParamField body="value" type="any" required>
+      The value to inject. The type must match the handle's expected type.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="outputs" type="array" optional>
+  A list of output capture objects. Specifying outputs lets you label results for easier retrieval from the job status response.
+
+  <Expandable title="Output capture object">
+    <ParamField body="node_label" type="string" required>
+      The label of the node whose output you want to capture.
+    </ParamField>
+    <ParamField body="output_handle" type="string" required>
+      The name of the output handle on that node.
+    </ParamField>
+    <ParamField body="output_label" type="string" required>
+      A friendly label for this output in the results dictionary.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Request example
+
+```json
+{
+  "inputs": [
+    {
+      "node_label": "input_node",
+      "input_handle": "value",
+      "value": 42
+    }
+  ],
+  "outputs": [
+    {
+      "node_label": "output_node",
+      "output_handle": "result",
+      "output_label": "my_result"
+    }
+  ]
+}
+```
+
+#### Response
+
+<ResponseField name="(root)" type="string">
+  The job ID as a string. Use this value to poll for the workflow's status and outputs at `GET /nodes/status/Workflow/{job_id}`.
+</ResponseField>
+
+#### Polling for results
+
+After queuing a workflow, poll the node status endpoint using `Workflow` as the node ID:
+
+```
+GET /nodes/status/Workflow/{job_id}
+```
+
+The response follows the same structure as for regular node jobs. The `outputs` field is a dictionary keyed by the `output_label` values you specified, populated once the workflow completes. See the [Node Endpoints](/api-reference/rest-nodes#get-job-status) page for the full status response schema.
+
+#### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    # 1. Queue the workflow
+    curl -X POST \
+      "https://<core_api_base>/workflows/projects/<project_id>/workflows/<workflow_id>/run" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "inputs": [
+          {
+            "node_label": "input_node",
+            "input_handle": "value",
+            "value": 42
+          }
+        ],
+        "outputs": [
+          {
+            "node_label": "output_node",
+            "output_handle": "result",
+            "output_label": "my_result"
+          }
+        ]
+      }'
+
+    # 2. Poll for the result (replace <job_id> with the returned value)
+    curl -X GET \
+      "https://<core_api_base>/nodes/status/Workflow/<job_id>" \
+      -H "Authorization: Bearer <access_token>"
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    import time
+    import requests
+
+    core_base = "https://<core_api_base>"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    # 1. Queue the workflow
+    run_response = requests.post(
+        f"{core_base}/workflows/projects/{project_id}/workflows/{workflow_id}/run",
+        json={
+            "inputs": [
+                {"node_label": "input_node", "input_handle": "value", "value": 42}
+            ],
+            "outputs": [
+                {"node_label": "output_node", "output_handle": "result", "output_label": "my_result"}
+            ],
+        },
+        headers=headers,
+    )
+    run_response.raise_for_status()
+    job_id = run_response.json()
+    print(f"Workflow job ID: {job_id}")
+
+    # 2. Poll until complete
+    while True:
+        status_response = requests.get(
+            f"{core_base}/nodes/status/Workflow/{job_id}",
+            headers=headers,
+        )
+        status_response.raise_for_status()
+        job = status_response.json()
+
+        if job["status"] == "completed":
+            print("Outputs:", job["outputs"])
+            break
+        elif job["status"] == "failed":
+            raise RuntimeError(f"Workflow failed: {job['message']}")
+
+        time.sleep(3)
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Resource API — workflow management
+
+The following endpoints manage workflow records within a project. They live on the **Resource API** and require the `X-Resource-Service-Token` header rather than a Bearer token.
+
+```
+X-Resource-Service-Token: <your_api_key>
+```
+
+### List workflows
+
+```
+GET /api/projects/{project_id}/workflows
+```
+
+Returns all workflow records in the specified project.
+
+<ParamField path="project_id" type="string" required>
+  The project to list workflows from.
+</ParamField>
+
+#### Response
+
+<ResponseField name="(root)" type="array">
+  An array of workflow record objects.
+
+  <Expandable title="Workflow record object">
+    <ResponseField name="workflow_id" type="string">
+      Unique identifier for the workflow.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Human-readable workflow name.
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      ISO 8601 timestamp of when the record was created.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Create a workflow record
+
+```
+POST /api/projects/{project_id}/workflows
+```
+
+Creates a new workflow record in the project. This registers the workflow in the Resource API; to add nodes and edges to the workflow, use the web UI or the SDK's `Graph` class.
+
+<ParamField path="project_id" type="string" required>
+  The project to create the workflow in.
+</ParamField>
+
+#### Request body
+
+<ParamField body="name" type="string" required>
+  The name for the new workflow.
+</ParamField>
+
+```json
+{ "name": "my_workflow" }
+```
+
+#### Response
+
+Returns the created workflow record, including the assigned `workflow_id`.
+
+---
+
+### Get workflow metadata
+
+```
+GET /api/projects/{project_id}/workflows/{workflow_id}
+```
+
+Returns metadata for a single workflow.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="string" required>
+  The workflow to retrieve.
+</ParamField>
+
+---
+
+### List workflow versions
+
+```
+GET /api/projects/{project_id}/workflows/{workflow_id}/versions
+```
+
+Returns all saved versions of a workflow. Each time you save changes to a workflow in the web UI, a new version is created.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="string" required>
+  The workflow to list versions for.
+</ParamField>
+
+---
+
+### Get latest workflow version
+
+```
+GET /api/projects/{project_id}/workflows/{workflow_id}/latest
+```
+
+Returns the most recently saved version of a workflow, including its graph definition.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="string" required>
+  The workflow to retrieve the latest version of.
+</ParamField>
+
+---
+
+### Delete a workflow
+
+```
+DELETE /api/projects/{project_id}/workflows/{workflow_id}
+```
+
+Permanently deletes a workflow record and all its versions. This action cannot be undone.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="string" required>
+  The workflow to delete.
+</ParamField>
+
+<Warning>
+  Deleting a workflow is irreversible. All versions of the workflow graph are permanently removed. If you have external integrations that reference the `workflow_id`, they will stop working after deletion.
+</Warning>
+
+---
+
+## Resource API authentication example
+
+All Resource API requests require the `X-Resource-Service-Token` header. Here is a minimal example that lists workflows in a project:
+
+```bash
+curl -X GET \
+  "https://<resource_api_base>/api/projects/<project_id>/workflows" \
+  -H "X-Resource-Service-Token: <your_api_key>"
+```
+
+```python
+import requests
+
+resource_base = "https://<resource_api_base>"
+resource_headers = {"X-Resource-Service-Token": "<your_api_key>"}
+
+response = requests.get(
+    f"{resource_base}/api/projects/{project_id}/workflows",
+    headers=resource_headers,
+)
+response.raise_for_status()
+workflows = response.json()
+for wf in workflows:
+    print(wf["workflow_id"], wf["name"])
+```

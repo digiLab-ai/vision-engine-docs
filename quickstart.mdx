@@ -1,47 +1,130 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with the Uncertainty Engine SDK"
+sidebarTitle: "Quickstart"
+description: "Install the Uncertainty Engine Python SDK, set your credentials, and run your first node in minutes with this step-by-step guide."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+The fastest way to experience the Uncertainty Engine is through its Python SDK. This guide walks you from a fresh Python environment to a running computation in five steps. By the end you will have authenticated against the platform, executed a node, and seen how to discover the full node library — the foundation for everything else you will build.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+<Tip>
+  The Uncertainty Engine is currently in **beta**. We recommend pinning your SDK version (e.g. `uncertainty-engine==0.14.1`) in `requirements.txt` or `pyproject.toml` so that API changes between releases don't break your workflows unexpectedly.
+</Tip>
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Request access">
+    The Uncertainty Engine is available to approved organisations. If you don't yet have an account, visit [digilab.ai](https://digilab.ai) to request access. Once approved, you will receive a username and temporary password by email.
+
+    If your organisation is already on the platform, ask your administrator to invite you — new users are provisioned through the web UI.
+  </Step>
+
+  <Step title="Install the SDK">
+    The SDK requires **Python 3.10 or later**. Install it from PyPI using your preferred package manager:
+
+    <CodeGroup>
+      ```bash pip
+      pip install uncertainty-engine
+      ```
+
+      ```bash poetry
+      poetry add uncertainty-engine
+      ```
+    </CodeGroup>
+
+    The base package is intentionally lightweight. If you need additional capabilities, install the relevant extras:
+
+    | Extra | Installs | Use case |
+    |---|---|---|
+    | `data` | numpy, pandas | Working with array and tabular data |
+    | `notebook` | ipykernel | Running SDK code in Jupyter notebooks |
+    | `vis` | matplotlib, networkx | Visualising graphs and results |
 
     ```bash
-    npm install your-package
+    # Example: install with data and visualisation support
+    pip install "uncertainty-engine[data,vis]"
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Set your credentials">
+    The SDK reads your credentials from two environment variables. Set them in your shell before running any Python code:
 
     ```bash
-    your-cli init
+    export UE_USERNAME="your@email.com"
+    export UE_PASSWORD="your-password"
     ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+    For persistent configuration, add these lines to your shell profile (e.g. `~/.bashrc` or `~/.zshrc`), or use a `.env` file with a library like [`python-dotenv`](https://pypi.org/project/python-dotenv/).
+
+    <Warning>
+      Never commit credentials to source control. Use environment variables, a secrets manager, or a `.env` file that is listed in `.gitignore`.
+    </Warning>
+
+    After your first successful `authenticate()` call, the SDK caches your auth token in a `.ue_auth` file in your home directory so you don't need to re-authenticate on every run.
+  </Step>
+
+  <Step title="Authenticate and run your first node">
+    With your credentials in place, you can authenticate and run a node in a few lines of Python. The example below uses the `Add` node from `nodes.basic` — the simplest way to verify the SDK is working end-to-end:
+
+    ```python
+    from uncertainty_engine import Client
+    from uncertainty_engine.nodes.basic import Add
+
+    # Create a client (connects to the production environment by default)
+    client = Client()
+
+    # Exchange your credentials for an auth token
+    client.authenticate()
+
+    # Run a single node synchronously
+    result = client.run_node(Add(lhs=1, rhs=2))
+
+    print(result.outputs)  # {'ans': 3.0}
+    ```
+
+    `run_node` is a synchronous helper — it submits the node, polls until the job completes, and returns the result. For long-running computations you can use `queue_node` instead, which returns a `Job` immediately so you can check its status later.
+
+    <Note>
+      Every node execution consumes tokens from your organisation's quota. The `Add` node used above costs very few tokens, but more complex nodes and large workflows consume proportionally more. Check your available balance with `client.view_tokens()`.
+    </Note>
+  </Step>
+
+  <Step title="List available nodes">
+    The platform has a growing library of nodes across multiple categories. To see what's available, call `list_nodes` with an optional category filter:
+
+    ```python
+    # List all nodes in the basic category
+    nodes = client.list_nodes(category="basic")
+    print(nodes)
+
+    # List all nodes across every category
+    all_nodes = client.list_nodes()
+    print(all_nodes)
+    ```
+
+    To get detailed information about a specific node — including its input/output schema and available versions — use `get_node_info`:
+
+    ```python
+    info = client.get_node_info(node="Add")
+    print(info)
+    ```
+
+    You can also search the library by keyword using `query_nodes`:
+
+    ```python
+    results = client.query_nodes(queries=["gaussian process", "regression"])
+    print(results)
     ```
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Next steps
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+Now that your SDK is working, explore how to chain nodes together into graphs and how to manage authentication in more complex environments:
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/sdk/authentication">
+    Learn about token caching, custom environments, and managing credentials in CI/CD pipelines.
+  </Card>
+  <Card title="Running Nodes" icon="play" href="/sdk/running-nodes">
+    Understand synchronous vs asynchronous execution, job polling, and handling outputs.
+  </Card>
+</CardGroup>

@@ -1,0 +1,136 @@
+---
+title: "Run Nodes with the Python SDK"
+sidebarTitle: "Running Nodes"
+description: "Execute individual nodes synchronously or asynchronously, poll job status, and cancel in-progress work using the Uncertainty Engine Python SDK."
+---
+
+Nodes are the building blocks of the Uncertainty Engine. Each node takes a set of typed inputs, performs a computation, and returns outputs. You can run a single node directly from Python in two modes: **synchronous**, where your script blocks until the result is ready, or **asynchronous**, where the SDK submits the job and returns immediately so you can continue other work while it runs.
+
+<Note>
+Running nodes consumes tokens from your organisation's quota. Call `client.view_tokens()` before long-running jobs to confirm you have sufficient balance.
+</Note>
+
+## Synchronous execution with `run_node`
+
+Use `run_node` when you want the result immediately and are happy to wait. It submits the node, blocks until the job completes or fails, and returns a `JobInfo` object containing the outputs.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.basic import Add
+
+client = Client()
+client.authenticate()
+
+result = client.run_node(Add(lhs=3, rhs=4))
+print(result.outputs)  # {'ans': 7.0}
+```
+
+`run_node` raises an exception if the job fails, so you can rely on a clean return value meaning successful completion.
+
+## Asynchronous execution with `queue_node`
+
+Use `queue_node` when you want to submit work and continue doing other things while it runs. It returns a `Job` object immediately with `node_id` and `job_id` fields that identify the submitted job.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.basic import Add
+
+client = Client()
+client.authenticate()
+
+job = client.queue_node(Add(lhs=3, rhs=4))
+print(job.node_id, job.job_id)
+
+# ... do other work here ...
+
+status = client.job_status(job)
+print(status.status)   # JobStatus.COMPLETED
+print(status.outputs)  # {'ans': 7.0}
+```
+
+### Using a node name string
+
+If you prefer not to import a node class, pass the node's name as a string and provide inputs as a dictionary:
+
+```python
+job = client.queue_node("Add", inputs={"lhs": 1, "rhs": 2})
+```
+
+This is useful when you are dynamically constructing node calls or working with node names returned by `client.list_nodes()`.
+
+## Checking job status
+
+Poll an async job with `job_status`. It returns a `JobInfo` each time you call it:
+
+```python
+import time
+
+job = client.queue_node(Add(lhs=10, rhs=20))
+
+while True:
+    info = client.job_status(job)
+    if info.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+        break
+    time.sleep(2)
+
+print(info.outputs)
+```
+
+### `JobStatus` values
+
+| Value | Meaning |
+|---|---|
+| `JobStatus.PENDING` | The job is queued and waiting for a worker. |
+| `JobStatus.RUNNING` | The job is actively being processed. |
+| `JobStatus.COMPLETED` | The job finished successfully. Outputs are available. |
+| `JobStatus.FAILED` | The job encountered an error. Check `info.message` for details. |
+
+### `JobInfo` fields
+
+<ResponseField name="status" type="JobStatus">
+  The current state of the job. See `JobStatus` values above.
+</ResponseField>
+
+<ResponseField name="message" type="str">
+  A human-readable message. Contains error details when `status` is `FAILED`.
+</ResponseField>
+
+<ResponseField name="inputs" type="dict">
+  The inputs that were sent to the node.
+</ResponseField>
+
+<ResponseField name="outputs" type="dict">
+  The outputs produced by the node. Only populated when `status` is `COMPLETED`.
+</ResponseField>
+
+## Cancelling a job
+
+Cancel a queued or running job by passing its `Job` object to `cancel_job`:
+
+```python
+job = client.queue_node(Add(lhs=100, rhs=200))
+
+# Change of plan — cancel before it runs
+client.cancel_job(job)
+```
+
+<Note>
+Cancelling a job that has already completed has no effect. If the job is mid-execution, cancellation is best-effort and the job may still complete before the cancellation is processed.
+</Note>
+
+## Discovering available nodes
+
+Before running a node you are unfamiliar with, use the discovery methods to find it and inspect its schema:
+
+```python
+# List all nodes in a category
+nodes = client.list_nodes(category="nodes.basic")
+
+# Get the input/output schema for a specific node
+info = client.get_node_info("Add", version="1.0.0")
+
+# Search by keyword
+results = client.query_nodes(["addition", "arithmetic"])
+```
+
+Node categories include `nodes.basic`, `nodes.machine_learning`, `nodes.sensor_designer`, `nodes.resource_management`, and `nodes.workflow`.

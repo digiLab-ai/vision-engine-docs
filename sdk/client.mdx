@@ -1,0 +1,128 @@
+---
+title: "The Client: Your Gateway to the Uncertainty Engine"
+sidebarTitle: "Client"
+description: "The Client class is the main entry point for all SDK interactions — use it to run nodes, execute workflows, manage jobs, and explore available nodes."
+---
+
+Every interaction with the Uncertainty Engine platform goes through a single `Client` object. It handles authentication, routes requests to the correct API, and returns typed response objects that you can work with directly in Python. You create one client per session, authenticate it once, and then use it for the lifetime of your script or notebook.
+
+## Creating a client
+
+### Default (production) environment
+
+Import `Client` and instantiate it with no arguments to connect to the production environment:
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+```
+
+### Development environment
+
+Pass `env="dev"` to connect to the development environment:
+
+```python
+from uncertainty_engine import Client
+
+client = Client(env="dev")
+client.authenticate()
+```
+
+### Custom environment
+
+If your organisation runs a private deployment, construct an `Environment` object and pass it as the `env` argument:
+
+```python
+from uncertainty_engine import Client, Environment
+
+env = Environment(
+    cognito_user_pool_client_id="us-east-1_xxxxxxxx",
+    core_api="https://your-core-api.example.com",
+    region="us-east-1",
+    resource_api="https://your-resource-api.example.com",
+)
+
+client = Client(env=env)
+client.authenticate()
+```
+
+<ParamField path="cognito_user_pool_client_id" type="str" required>
+  The AWS Cognito user pool client ID for your deployment.
+</ParamField>
+
+<ParamField path="core_api" type="str" required>
+  Base URL of the core API gateway (handles node execution and job management).
+</ParamField>
+
+<ParamField path="region" type="str" required>
+  AWS region where your deployment is hosted (for example `"us-east-1"`).
+</ParamField>
+
+<ParamField path="resource_api" type="str" required>
+  Base URL of the resource API gateway (handles projects, workflows, and templates).
+</ParamField>
+
+## What the client can do
+
+The `Client` exposes methods across five functional areas:
+
+<CardGroup cols={2}>
+
+<Card title="Node execution" icon="play">
+  Run individual nodes synchronously or asynchronously and retrieve their outputs.
+  See [Running Nodes](./running-nodes).
+</Card>
+
+<Card title="Workflow execution" icon="diagram-project">
+  Execute saved multi-node workflows stored in your organisation's projects.
+  See [Running Workflows](./running-workflows).
+</Card>
+
+<Card title="Job management" icon="list-check">
+  Check the status of async jobs, cancel in-progress work, and retrieve results when ready.
+</Card>
+
+<Card title="Node discovery" icon="magnifying-glass">
+  Browse available nodes by category, look up input/output schemas, and search by keyword.
+</Card>
+
+</CardGroup>
+
+## Method reference
+
+The table below lists every public method on `Client` with a short description. Click the linked pages for full examples and parameter details.
+
+| Method | Description |
+|---|---|
+| `authenticate()` | Exchange your credentials for a session token. Must be called before any other method. |
+| `run_node(node)` | Execute a node synchronously and return a `JobInfo` with outputs. |
+| `queue_node(node, inputs)` | Submit a node for async execution and return a `Job` immediately. |
+| `run_workflow(project_id, workflow_id, inputs, outputs)` | Execute a saved workflow synchronously and return a `JobInfo`. |
+| `queue_workflow(project_id, workflow_id, inputs, outputs)` | Submit a saved workflow for async execution and return a `Job`. |
+| `job_status(job)` | Poll the current status and outputs of an async job. |
+| `cancel_job(job)` | Cancel a queued or running job. |
+| `list_nodes(category)` | List all available nodes, optionally filtered by category. |
+| `get_node_info(node, version)` | Return the input/output schema for a specific node and version. |
+| `get_node_versions(node_id)` | List all available versions of a node. |
+| `query_nodes(queries)` | Search for nodes matching one or more keyword queries. |
+| `view_tokens()` | Return the number of tokens remaining in your organisation's quota. |
+
+<Tip>
+Not sure which node to use? Call `client.list_nodes()` to browse all available nodes or `client.query_nodes(["regression", "gaussian"])` to search by keyword.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={3}>
+<Card title="Running Nodes" icon="circle-play" href="./running-nodes">
+  Execute individual nodes and handle their results.
+</Card>
+<Card title="Building Graphs" icon="share-nodes" href="./building-graphs">
+  Compose nodes into multi-step directed graphs.
+</Card>
+<Card title="Running Workflows" icon="diagram-project" href="./running-workflows">
+  Execute saved workflows stored in your projects.
+</Card>
+</CardGroup>

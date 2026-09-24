@@ -1,0 +1,135 @@
+---
+title: "Environment: Configure SDK Target Endpoints"
+sidebarTitle: "Environment"
+description: "Use the Environment class to point the SDK at production, development, or custom Uncertainty Engine deployments with separate credentials and API endpoints."
+---
+
+By default the Uncertainty Engine SDK connects to the production environment, but you can point it at a different deployment — such as a development instance or a bespoke environment provisioned by digiLab — by configuring the `env` parameter when constructing a `Client`. This page explains the three ways to target an environment and how to use the `Environment` class for fully custom deployments.
+
+<Warning>
+  Credentials are environment-specific. A username and password that work in
+  production will not authenticate against the development or any custom
+  environment. Make sure you use the credentials that were issued for the
+  specific environment you are targeting.
+</Warning>
+
+---
+
+## Default: production
+
+If you call `Client()` without any arguments it connects to the production environment. This is the right choice for the vast majority of use cases.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()          # equivalent to Client(env="prod")
+client.authenticate()
+```
+
+---
+
+## Named environments
+
+Pass `env="dev"` to target the shared development environment. This is useful for testing integrations against a pre-release API without affecting production workloads.
+
+```python
+from uncertainty_engine import Client
+
+client = Client(env="dev")
+client.authenticate()
+```
+
+<Note>
+  The `"dev"` environment may run pre-release versions of the Uncertainty
+  Engine API and is subject to change without notice. Do not use it for
+  production workloads.
+</Note>
+
+---
+
+## Custom environments
+
+If digiLab has provisioned a dedicated Uncertainty Engine deployment for your organisation, you can point the SDK at it using the `Environment` class. digiLab will supply all four connection values along with a separate set of credentials when they provision your environment.
+
+```python
+from uncertainty_engine import Client, Environment
+
+client = Client(
+    env=Environment(
+        cognito_user_pool_client_id="3vj5pe253j4v070euqjdk38a24",
+        core_api="https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com",
+        region="eu-west-2",
+        resource_api="https://m90q55iux6.execute-api.eu-west-2.amazonaws.com",
+    )
+)
+client.authenticate()
+```
+
+### `Environment` parameters
+
+<ParamField path="cognito_user_pool_client_id" type="str" required>
+  The alphanumeric client ID for the Amazon Cognito user pool that backs this
+  environment. Provided by digiLab when your environment is provisioned.
+</ParamField>
+
+<ParamField path="core_api" type="str" required>
+  The base URL of the Core API gateway for this environment. Must start with
+  `https://` and must not include a trailing slash.
+
+  Example: `"https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com"`
+</ParamField>
+
+<ParamField path="region" type="str" required>
+  The geographic region code where this environment is hosted.
+
+  Example: `"eu-west-2"`
+</ParamField>
+
+<ParamField path="resource_api" type="str" required>
+  The base URL of the Resource API gateway for this environment. Must start
+  with `https://` and must not include a trailing slash.
+
+  Example: `"https://m90q55iux6.execute-api.eu-west-2.amazonaws.com"`
+</ParamField>
+
+<Note>
+  If digiLab has provided you with a custom environment, all four values above
+  will be included in your onboarding details alongside the credentials for
+  that environment. Keep these values secure and do not share them publicly.
+</Note>
+
+---
+
+## Choosing the right environment
+
+<CardGroup cols={3}>
+  <Card title="Production" icon="circle-check">
+    The default. Use for all real workloads.
+
+    ```python
+    Client()
+    # or
+    Client(env="prod")
+    ```
+  </Card>
+  <Card title="Development" icon="flask">
+    Pre-release API. Use for testing integrations.
+
+    ```python
+    Client(env="dev")
+    ```
+  </Card>
+  <Card title="Custom" icon="server">
+    Dedicated deployment. Use when digiLab has provisioned a bespoke instance.
+
+    ```python
+    Client(env=Environment(...))
+    ```
+  </Card>
+</CardGroup>
+
+---
+
+## Credential caching
+
+After a successful `authenticate()` call the SDK writes an auth token to `~/.ue_auth`. Tokens are cached per environment, so switching between environments will trigger a fresh authentication round-trip. You can safely delete `~/.ue_auth` if you need to force re-authentication.

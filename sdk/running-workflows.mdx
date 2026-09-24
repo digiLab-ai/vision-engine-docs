@@ -1,0 +1,172 @@
+---
+title: "Execute Saved Workflows via the Python SDK"
+sidebarTitle: "Running Workflows"
+description: "Run pre-built workflows stored in your organisation's projects, override specific node inputs at runtime, and capture named outputs with the Python SDK."
+---
+
+A workflow is a saved graph that lives inside a project on the Uncertainty Engine platform. Once a workflow is published — either from the visual node editor or by uploading a graph you built in Python — you can execute it from the SDK without rebuilding it each time. This makes it straightforward to run the same pipeline repeatedly with different inputs, or to trigger workflows programmatically from other systems.
+
+## Synchronous execution with `run_workflow`
+
+Use `run_workflow` when you want to block until the workflow finishes and receive the results directly:
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+result = client.run_workflow(
+    project_id="your-project-id",
+    workflow_id="your-workflow-id",
+)
+
+print(result.outputs)
+```
+
+## Asynchronous execution with `queue_workflow`
+
+Use `queue_workflow` when you want to submit the workflow and continue other work while it runs. It returns a `Job` immediately; poll it with `job_status` to check for completion:
+
+```python
+import time
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+job = client.queue_workflow(
+    project_id="your-project-id",
+    workflow_id="your-workflow-id",
+)
+
+# ... do other work ...
+
+result = client.job_status(job)
+print(result.status)
+print(result.outputs)
+```
+
+## Overriding inputs at runtime
+
+Pass a list of `OverrideWorkflowInput` objects to replace the default value of any node input when the workflow runs. Each override targets a specific node by its label and the name of the input handle you want to change:
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.workflows import OverrideWorkflowInput
+
+client = Client()
+client.authenticate()
+
+inputs = [
+    OverrideWorkflowInput(
+        node_label="add_1",
+        input_handle="lhs",
+        value=42,
+    ),
+    OverrideWorkflowInput(
+        node_label="add_1",
+        input_handle="rhs",
+        value=8,
+    ),
+]
+
+result = client.run_workflow(
+    project_id="your-project-id",
+    workflow_id="your-workflow-id",
+    inputs=inputs,
+)
+
+print(result.outputs)
+```
+
+## Capturing specific outputs
+
+By default, `run_workflow` returns whatever outputs the workflow exposes. Use `OverrideWorkflowOutput` to explicitly name the outputs you want back and control the keys they appear under in `result.outputs`:
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.workflows import OverrideWorkflowInput, OverrideWorkflowOutput
+
+client = Client()
+client.authenticate()
+
+inputs = [
+    OverrideWorkflowInput(node_label="add_1", input_handle="lhs", value=42),
+    OverrideWorkflowInput(node_label="add_1", input_handle="rhs", value=8),
+]
+
+outputs = [
+    OverrideWorkflowOutput(
+        node_label="add_1",
+        output_handle="ans",
+        output_label="my_result",
+    ),
+]
+
+result = client.run_workflow(
+    project_id="your-project-id",
+    workflow_id="your-workflow-id",
+    inputs=inputs,
+    outputs=outputs,
+)
+
+print(result.outputs)  # {'my_result': 50.0}
+```
+
+### `OverrideWorkflowInput` parameters
+
+<ParamField path="node_label" type="str" required>
+  The label of the node inside the workflow whose input you want to override.
+</ParamField>
+
+<ParamField path="input_handle" type="str" required>
+  The name of the input port on that node (for example `"lhs"` or `"rhs"`).
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The value to inject. Must be compatible with the node's expected input type.
+</ParamField>
+
+### `OverrideWorkflowOutput` parameters
+
+<ParamField path="node_label" type="str" required>
+  The label of the node whose output you want to capture.
+</ParamField>
+
+<ParamField path="output_handle" type="str" required>
+  The name of the output port on that node (for example `"ans"`).
+</ParamField>
+
+<ParamField path="output_label" type="str" required>
+  The key under which this output will appear in `JobInfo.outputs`.
+</ParamField>
+
+## Result structure
+
+Both `run_workflow` and `job_status` (after `queue_workflow`) return a `JobInfo` object:
+
+<ResponseField name="status" type="JobStatus">
+  The final state of the job: `COMPLETED` on success, `FAILED` on error.
+</ResponseField>
+
+<ResponseField name="outputs" type="dict">
+  A dictionary of output values keyed by `output_label`. Only populated when `status` is `COMPLETED`.
+</ResponseField>
+
+<ResponseField name="message" type="str">
+  A human-readable message. Contains error details when `status` is `FAILED`.
+</ResponseField>
+
+## Finding your project and workflow IDs
+
+You can retrieve IDs in two ways:
+
+- **Platform UI**: open your project in the Uncertainty Engine web app. The project ID and workflow ID appear in the URL of the workflow editor page.
+- **SDK**: use `client.workflows` to list workflows in a project programmatically and inspect the returned objects for their IDs.
+
+## Deprecation notice
+
+<Warning>
+Passing plain Python dictionaries for `inputs` and `outputs` is deprecated and will be removed in a future release. Always use `OverrideWorkflowInput` and `OverrideWorkflowOutput` objects instead. Code that passes dicts will emit a `DeprecationWarning` in the current version.
+</Warning>

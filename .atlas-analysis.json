@@ -1,0 +1,134 @@
+{
+  "projectType": "saas",
+  "projectName": "Uncertainty Engine",
+  "projectDescription": "digiLab's Uncertainty Engine is an AI workflow platform that enables organisations to build, test, and deploy uncertainty-aware AI models for safety-critical and high-stakes decision-making.",
+  "theme": "luma",
+  "primaryColor": "#ef7025",
+  "lightColor": "#eec9bc",
+  "darkColor": "#4fa1ab",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/projects",
+              "platform/workflows",
+              "platform/nodes",
+              "platform/resources"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "sdk/installation",
+              "sdk/authentication",
+              "sdk/client",
+              "sdk/running-nodes",
+              "sdk/building-graphs",
+              "sdk/running-workflows"
+            ]
+          },
+          {
+            "group": "Node Reference",
+            "pages": [
+              "nodes/overview",
+              "nodes/machine-learning",
+              "nodes/sensor-designer",
+              "nodes/resource-management"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "troubleshooting",
+              "changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "SDK Reference",
+            "pages": [
+              "api-reference/client",
+              "api-reference/graph",
+              "api-reference/environment"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference/rest-overview",
+              "api-reference/rest-nodes",
+              "api-reference/rest-workflows",
+              "api-reference/rest-resources"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Uncertainty-aware AI workflow builder with visual node-based editor",
+    "Python SDK for programmatic access to the platform",
+    "Machine learning model training and prediction nodes",
+    "Sensor designer for optimal sensor placement under uncertainty",
+    "Resource and project management for collaborative teams",
+    "Transparent, explainable AI grounded in probabilistic methods",
+    "VisionEngine sub-product for uncertainty-driven computer vision",
+    "Sovereign AI deployment with control over models and environments",
+    "Support for sparse, incomplete, and uncertain data",
+    "Token-based usage system for queuing and running workflows"
+  ],
+  "publicApiSurface": [
+    "Client(env)",
+    "Client.authenticate()",
+    "Client.run_node(node)",
+    "Client.queue_node(node, inputs)",
+    "Client.run_workflow(project_id, workflow_id, inputs, outputs)",
+    "Client.queue_workflow(project_id, workflow_id, inputs, outputs)",
+    "Client.job_status(job)",
+    "Client.cancel_job(job)",
+    "Client.list_nodes(category)",
+    "Client.get_node_info(node, version)",
+    "Client.get_node_versions(node_id)",
+    "Client.query_nodes(queries)",
+    "Client.view_tokens()",
+    "Graph(external_input_id, prevent_node_overwrite)",
+    "Graph.add_node(node, label, version)",
+    "Graph.add_nodes_from(nodes)",
+    "Graph.add_edge(source, source_key, target, target_key)",
+    "Graph.add_input(key, value)",
+    "Environment(cognito_user_pool_client_id, core_api, region, resource_api)",
+    "Node (base class for all node types)",
+    "nodes.basic.Add",
+    "nodes.machine_learning.*",
+    "nodes.sensor_designer.*",
+    "nodes.resource_management.*",
+    "nodes.workflow.*",
+    "GET /nodes/list",
+    "POST /nodes/queue",
+    "GET /nodes/status/{node_id}/{job_id}",
+    "POST /nodes/jobs/{job_id}/cancel",
+    "POST /nodes/query",
+    "GET /nodes/{node_id}/versions",
+    "POST /workflows/projects/{project_id}/workflows/{workflow_id}/run",
+    "GET /api/projects",
+    "POST /api/projects",
+    "GET /api/projects/{project_id}/resources/{resource_type}",
+    "POST /api/projects/{project_id}/resources/{resource_type}"
+  ]
+}

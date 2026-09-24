@@ -1,0 +1,55 @@
+---
+title: "Uncertainty Engine: AI for High-Stakes Decisions"
+sidebarTitle: "Introduction"
+description: "An AI workflow platform built on uncertainty quantification, designed for safety-critical domains where confident, explainable decisions matter most."
+---
+
+The Uncertainty Engine is an AI workflow platform built by [digiLab](https://digilab.ai) for organisations that cannot afford to treat AI as a black box. Instead of returning bare predictions, every computation on the platform produces **quantified confidence** alongside its output — so your team always knows how much to trust a result. Whether you are building a risk model for critical infrastructure, a sensor-fusion pipeline for an autonomous system, or a decision-support tool for environmental management, the Uncertainty Engine gives you the rigour of uncertainty quantification (UQ) without requiring a dedicated research team to implement it.
+
+<Note>
+  The Uncertainty Engine is currently in **beta**. Interfaces and APIs may change between releases. Pin your SDK version in production and check the changelog before upgrading.
+</Note>
+
+## Who it's for
+
+The platform is designed for **data scientists and engineers** working in safety-critical industries where the cost of a wrong answer — or an overconfident one — is high. Typical users include:
+
+- **Energy and utilities** teams modelling asset degradation, grid stability, or demand forecasting under uncertain conditions
+- **Infrastructure and civil engineering** organisations that need to certify models against sparse sensor data
+- **Defence and aerospace** engineers building decision-support tools that must explain their reasoning under audit
+- **Environmental science** teams working with incomplete or noisy observational datasets
+
+If your domain demands answers you can defend — not just answers that score well on a leaderboard — the Uncertainty Engine was built for you.
+
+## Key value propositions
+
+**Transparent, explainable AI** — every node in the platform exposes typed inputs and outputs with human-readable metadata. Workflows are visual and auditable; there are no hidden layers between your data and your results.
+
+**Works with sparse and incomplete data** — the platform's UQ-native architecture is designed from the ground up for the data-poor regimes common in engineering and science. You don't need millions of training examples to produce reliable confidence estimates.
+
+**Quantified confidence on every output** — rather than returning a single point prediction, the platform propagates uncertainty through your entire workflow. The result is a distribution, not a number, so downstream decisions can be risk-weighted appropriately.
+
+## How you interact with it
+
+You can build and run AI workflows in two complementary ways:
+
+- **Web UI** — a visual, node-based editor that lets you drag, connect, and configure nodes without writing code. Ideal for exploration, stakeholder demonstrations, and workflows that non-programmers need to inspect.
+- **Python SDK** — the `uncertainty-engine` package gives programmatic access to every platform capability, from authenticating and running individual nodes to composing multi-step graphs and managing project resources.
+
+## VisionEngine
+
+The Uncertainty Engine family includes **VisionEngine**, a sub-product that applies the same UQ-native approach to computer vision tasks. VisionEngine nodes appear in the standard node library and can be composed with any other node type in your workflows.
+
+## Where to go next
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK, authenticate, and run your first node in under five minutes.
+  </Card>
+  <Card title="Core Concepts" icon="book-open" href="/concepts">
+    Understand nodes, graphs, workflows, jobs, and how uncertainty quantification fits in.
+  </Card>
+  <Card title="SDK Installation" icon="cube" href="/sdk/installation">
+    Full installation options, optional extras, and environment configuration.
+  </Card>
+</CardGroup>

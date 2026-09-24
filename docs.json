@@ -1,38 +1,13 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "theme": "luma",
+  "name": "Uncertainty Engine",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#ef7025",
+    "light": "#eec9bc",
+    "dark": "#4fa1ab"
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
@@ -41,32 +16,95 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:info@digilab.ai"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "label": "Get Access",
+      "href": "https://www.digilab.ai"
     }
   },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/projects",
+              "platform/workflows",
+              "platform/nodes",
+              "platform/resources"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "sdk/installation",
+              "sdk/authentication",
+              "sdk/client",
+              "sdk/running-nodes",
+              "sdk/building-graphs",
+              "sdk/running-workflows"
+            ]
+          },
+          {
+            "group": "Node Reference",
+            "pages": [
+              "nodes/overview",
+              "nodes/machine-learning",
+              "nodes/sensor-designer",
+              "nodes/resource-management"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "troubleshooting",
+              "changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "SDK Reference",
+            "pages": [
+              "api-reference/client",
+              "api-reference/graph",
+              "api-reference/environment"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api-reference/rest-overview",
+              "api-reference/rest-nodes",
+              "api-reference/rest-workflows",
+              "api-reference/rest-resources"
+            ]
+          }
+        ]
+      }
     ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/digilab_ai",
+      "github": "https://github.com/digiLab-ai",
+      "linkedin": "https://www.linkedin.com/company/digilab-solutions-ltd"
     }
   }
 }

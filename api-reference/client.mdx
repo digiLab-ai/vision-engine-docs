@@ -1,0 +1,480 @@
+---
+title: "Client Class: Full SDK API Reference"
+sidebarTitle: "Client"
+description: "Complete reference for the Client class — all methods, parameters, and return types for authenticating, running nodes and workflows, and managing jobs."
+---
+
+The `Client` class is the primary entry point for the Uncertainty Engine Python SDK. You use it to authenticate with the platform, submit nodes and workflows for execution, inspect job status, and explore the node catalogue. Every interaction with the Uncertainty Engine API flows through a `Client` instance.
+
+## Quick start
+
+The most common pattern is to authenticate once, submit a node, and inspect the result:
+
+```python
+import os
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.basic import Add
+
+os.environ["UE_USERNAME"] = "you@example.com"
+os.environ["UE_PASSWORD"] = "your-password"
+
+client = Client()         # defaults to the production environment
+client.authenticate()     # reads credentials from env vars
+
+node = Add(a=1, b=2)
+result = client.run_node(node)
+
+print(result.status)      # "succeeded"
+print(result.outputs)     # {"result": 3}
+```
+
+---
+
+## Constructor
+
+### `Client(env)`
+
+Creates a new client instance. No network call is made at construction time — call `authenticate()` before submitting any requests.
+
+<ParamField path="env" type="Environment | str" default='"prod"'>
+  The target environment. Pass `"prod"` for production, `"dev"` for the
+  development environment, or a custom `Environment` object for bespoke
+  deployments. See the [Environment reference](/api-reference/environment) for
+  details.
+</ParamField>
+
+```python
+from uncertainty_engine import Client, Environment
+
+# Production (default)
+client = Client()
+
+# Development
+client = Client(env="dev")
+
+# Custom deployment
+client = Client(env=Environment(
+    cognito_user_pool_client_id="3vj5pe253j4v070euqjdk38a24",
+    core_api="https://de1v75vvk6.execute-api.eu-west-2.amazonaws.com",
+    region="eu-west-2",
+    resource_api="https://m90q55iux6.execute-api.eu-west-2.amazonaws.com",
+))
+```
+
+---
+
+## Methods
+
+### `authenticate()`
+
+Reads your credentials from the `UE_USERNAME` and `UE_PASSWORD` environment variables, exchanges them for an access token, and caches the token in `~/.ue_auth`. Subsequent calls reuse the cached token until it expires.
+
+Call this method once before making any other API calls.
+
+<Note>
+  If the `~/.ue_auth` cache already holds a valid token for the current
+  environment, `authenticate()` skips the network round-trip and returns
+  immediately.
+</Note>
+
+**Raises**
+
+| Exception | Condition |
+|---|---|
+| `IncompleteCredentials` | `UE_USERNAME` or `UE_PASSWORD` is not set |
+
+```python
+import os
+from uncertainty_engine import Client
+
+os.environ["UE_USERNAME"] = "you@example.com"
+os.environ["UE_PASSWORD"] = "your-password"
+
+client = Client()
+client.authenticate()
+```
+
+---
+
+### `run_node(node, inputs)`
+
+Submits a node for execution and **blocks** until the job reaches a terminal state (succeeded or failed), then returns the full result.
+
+<ParamField path="node" type="Node | str" required>
+  The node to execute. Pass a node instance (e.g. `Add(a=1, b=2)`) or a node
+  ID string (e.g. `"basic/Add"`). When passing a string you must also supply
+  `inputs`.
+</ParamField>
+
+<ParamField path="inputs" type="dict | None" default="None">
+  Input values for the node. Required when `node` is given as a string;
+  ignored when `node` is a fully-configured instance.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="JobInfo" type="object">
+  A `JobInfo` object describing the completed job.
+
+  <Expandable title="JobInfo fields">
+    <ResponseField name="status" type="str">
+      Terminal status of the job — `"succeeded"` or `"failed"`.
+    </ResponseField>
+    <ResponseField name="message" type="str">
+      Human-readable status message or error description.
+    </ResponseField>
+    <ResponseField name="inputs" type="dict">
+      The resolved inputs that were sent to the node.
+    </ResponseField>
+    <ResponseField name="outputs" type="dict">
+      Key/value map of the node's output handles and their values. Empty if
+      the job failed.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Tabs>
+  <Tab title="Node instance">
+    ```python
+    from uncertainty_engine.nodes.basic import Add
+
+    result = client.run_node(Add(a=10, b=20))
+    print(result.outputs)  # {"result": 30}
+    ```
+  </Tab>
+  <Tab title="Node ID string">
+    ```python
+    result = client.run_node("basic/Add", inputs={"a": 10, "b": 20})
+    print(result.outputs)  # {"result": 30}
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### `queue_node(node, inputs)`
+
+Submits a node for execution and returns **immediately** with a `Job` handle. Use `job_status()` to poll for results or `cancel_job()` to abort.
+
+<ParamField path="node" type="Node | str" required>
+  The node to execute. Pass a node instance or a node ID string. When passing
+  a string you must also supply `inputs`.
+</ParamField>
+
+<ParamField path="inputs" type="dict | None" default="None">
+  Input values for the node. Required when `node` is given as a string.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="Job" type="object">
+  A lightweight handle used to track the queued job.
+
+  <Expandable title="Job fields">
+    <ResponseField name="node_id" type="str">
+      The ID of the node that was queued.
+    </ResponseField>
+    <ResponseField name="job_id" type="str">
+      Unique identifier for this job execution. Pass this object to
+      `job_status()` or `cancel_job()`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```python
+from uncertainty_engine.nodes.basic import Add
+
+job = client.queue_node(Add(a=10, b=20))
+print(job.job_id)
+
+# ... do other work ...
+
+result = client.job_status(job)
+print(result.status)
+```
+
+---
+
+### `run_workflow(project_id, workflow_id, inputs, outputs)`
+
+Submits a saved workflow for execution and **blocks** until completion. Optionally override specific workflow inputs and select which output handles to return.
+
+<ParamField path="project_id" type="str" required>
+  The ID of the project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="str" required>
+  The ID of the workflow to run.
+</ParamField>
+
+<ParamField path="inputs" type="list[OverrideWorkflowInput] | None" default="None">
+  A list of input overrides to apply before execution. Each
+  `OverrideWorkflowInput` specifies a node label, input handle, and
+  replacement value. Pass `None` to use the values saved in the workflow.
+</ParamField>
+
+<ParamField path="outputs" type="list[OverrideWorkflowOutput] | None" default="None">
+  A list of output selectors that determine which handles are included in the
+  result. Pass `None` to return all outputs defined by the workflow.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="JobInfo" type="object">
+  A `JobInfo` object with the same fields as described under `run_node()`.
+</ResponseField>
+
+```python
+result = client.run_workflow(
+    project_id="proj-abc123",
+    workflow_id="wf-def456",
+    inputs=None,
+    outputs=None,
+)
+print(result.outputs)
+```
+
+---
+
+### `queue_workflow(project_id, workflow_id, inputs, outputs)`
+
+Submits a saved workflow for execution and returns **immediately** with a `Job` handle.
+
+<ParamField path="project_id" type="str" required>
+  The ID of the project that contains the workflow.
+</ParamField>
+
+<ParamField path="workflow_id" type="str" required>
+  The ID of the workflow to run.
+</ParamField>
+
+<ParamField path="inputs" type="list[OverrideWorkflowInput] | None" default="None">
+  Input overrides to apply before execution. Pass `None` to use saved values.
+</ParamField>
+
+<ParamField path="outputs" type="list[OverrideWorkflowOutput] | None" default="None">
+  Output selectors for the result. Pass `None` to return all workflow outputs.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="Job" type="object">
+  A lightweight job handle with `node_id` and `job_id` fields. Pass it to
+  `job_status()` to poll for results.
+</ResponseField>
+
+```python
+job = client.queue_workflow(
+    project_id="proj-abc123",
+    workflow_id="wf-def456",
+    inputs=None,
+    outputs=None,
+)
+print(job.job_id)
+```
+
+---
+
+### `job_status(job)`
+
+Fetches the current status of a queued job without blocking.
+
+<ParamField path="job" type="Job" required>
+  The `Job` handle returned by `queue_node()` or `queue_workflow()`.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="JobInfo" type="object">
+  A `JobInfo` snapshot with `status`, `message`, `inputs`, and `outputs`. If
+  the job is still running, `status` will be `"running"` and `outputs` will be
+  empty.
+</ResponseField>
+
+```python
+import time
+
+job = client.queue_node(Add(a=1, b=2))
+
+while True:
+    info = client.job_status(job)
+    if info.status in ("succeeded", "failed"):
+        break
+    time.sleep(2)
+
+print(info.outputs)
+```
+
+---
+
+### `cancel_job(job)`
+
+Requests cancellation of a running job.
+
+<ParamField path="job" type="Job" required>
+  The `Job` handle of the job to cancel.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="bool" type="bool">
+  `True` if the cancellation request was accepted; `False` otherwise (for
+  example, if the job had already completed).
+</ResponseField>
+
+```python
+job = client.queue_node(Add(a=1, b=2))
+cancelled = client.cancel_job(job)
+print(cancelled)  # True
+```
+
+---
+
+### `list_nodes(category)`
+
+Returns a list of all nodes available to your organisation, optionally filtered by category.
+
+<ParamField path="category" type="str | None" default="None">
+  Filter results to a specific category name, such as `"basic"` or
+  `"machine_learning"`. Pass `None` (the default) to return every available
+  node.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="list[dict]" type="list[dict]">
+  A list of node info dictionaries, each containing at minimum the node ID,
+  display name, and category.
+</ResponseField>
+
+```python
+# All nodes
+all_nodes = client.list_nodes()
+
+# Only machine-learning nodes
+ml_nodes = client.list_nodes(category="machine_learning")
+for node in ml_nodes:
+    print(node["node_id"], node["name"])
+```
+
+---
+
+### `get_node_info(node, version)`
+
+Retrieves the full schema for a specific node version, including all input and output handle definitions.
+
+<ParamField path="node" type="str" required>
+  The node ID (e.g. `"basic/Add"`).
+</ParamField>
+
+<ParamField path="version" type="str | int" required>
+  The version of the node to inspect.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="NodeInfo" type="object">
+  A `NodeInfo` object describing the node.
+
+  <Expandable title="NodeInfo fields">
+    <ResponseField name="inputs" type="dict">
+      Map of input handle names to their type definitions.
+    </ResponseField>
+    <ResponseField name="outputs" type="dict">
+      Map of output handle names to their type definitions.
+    </ResponseField>
+    <ResponseField name="metadata" type="dict">
+      Display name, description, category, and other catalogue metadata.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Raises**
+
+| Exception | Condition |
+|---|---|
+| `KeyError` | The node ID or version was not found |
+
+```python
+info = client.get_node_info("basic/Add", version=1)
+print(info.inputs)
+print(info.outputs)
+```
+
+---
+
+### `get_node_versions(node_id)`
+
+Lists every available version of a node.
+
+<ParamField path="node_id" type="str" required>
+  The node ID to look up (e.g. `"basic/Add"`).
+</ParamField>
+
+**Returns**
+
+<ResponseField name="list[str | int]" type="list[str | int]">
+  An ordered list of version identifiers for the node.
+</ResponseField>
+
+**Raises**
+
+| Exception | Condition |
+|---|---|
+| `HTTPError` (404) | No node with the given ID exists |
+
+```python
+versions = client.get_node_versions("basic/Add")
+print(versions)  # [1, 2, 3]
+```
+
+---
+
+### `query_nodes(queries)`
+
+Bulk-fetches node info for a list of node queries. Use this when you need schema information for several nodes at once to avoid multiple round-trips.
+
+<ParamField path="queries" type="list[NodeQuery]" required>
+  A list of `NodeQuery` objects, each specifying a node ID and version.
+</ParamField>
+
+**Returns**
+
+<ResponseField name="dict[str, NodeInfo]" type="dict[str, NodeInfo]">
+  A dictionary keyed by `"node_id@version"` strings, mapping to the
+  corresponding `NodeInfo` objects.
+</ResponseField>
+
+```python
+from uncertainty_engine import NodeQuery
+
+results = client.query_nodes([
+    NodeQuery(node_id="basic/Add", version=1),
+    NodeQuery(node_id="basic/Number", version=1),
+])
+
+for key, info in results.items():
+    print(key, info.metadata)
+```
+
+---
+
+### `view_tokens()`
+
+Returns the number of execution tokens currently available to your organisation. Tokens are consumed each time a node or workflow is executed.
+
+**Returns**
+
+<ResponseField name="int" type="int">
+  The remaining token balance for your organisation.
+</ResponseField>
+
+<Tip>
+  Check your token balance before submitting large batch jobs to avoid
+  unexpected failures mid-run.
+</Tip>
+
+```python
+balance = client.view_tokens()
+print(f"Tokens remaining: {balance}")
+```

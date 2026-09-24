@@ -1,0 +1,119 @@
+---
+title: "Upload and Manage Project Resources"
+sidebarTitle: "Resources"
+description: "Store datasets, model artefacts, and config files as versioned resources inside a project so workflows can read and write them at run time."
+---
+
+Resources are files you upload to a project so that workflows can consume them at run time. Common resource types include datasets (tabular data, sensor readings, simulation outputs) and model artefacts (trained weights, calibration files, configuration objects). Resources are scoped to a specific project, and every time you upload a new file for the same resource a new version is created automatically. Workflows always reference the latest version unless you request a specific one.
+
+## What resources contain
+
+<CardGroup cols={2}>
+  <Card title="Datasets" icon="table">
+    Tabular files, CSV exports, and any structured data your nodes need as
+    input. Upload once, reuse across many workflow runs.
+  </Card>
+  <Card title="Model artefacts" icon="cube">
+    Serialised models, weight files, and calibration configs produced by
+    training runs. Store them as resources so downstream workflows can load
+    them without re-training.
+  </Card>
+</CardGroup>
+
+## Upload a resource
+
+Call `client.resources.upload()` with the target project ID, a resource type string, and the local file path. The platform creates the resource (or a new version if the resource already exists) and returns a resource object that includes the assigned ID.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+resource = client.resources.upload(
+    project_id="your_project_id",
+    resource_type="dataset",
+    file_path="data/measurements.csv",
+)
+print("Uploaded resource ID:", resource.id)
+print("Version:", resource.version)
+```
+
+<Tip>
+  Use consistent `resource_type` strings across your team (for example,
+  `"dataset"` and `"model"`) so that resource listings stay organised and
+  workflows can rely on a predictable naming convention.
+</Tip>
+
+## List resources in a project
+
+Pass a project ID and an optional resource type to `client.resources.list()` to retrieve all matching resources.
+
+```python
+# List all resources in a project
+all_resources = client.resources.list(project_id="your_project_id")
+for r in all_resources:
+    print(r.id, r.resource_type, r.version)
+
+# Narrow to a specific type
+datasets = client.resources.list(
+    project_id="your_project_id",
+    resource_type="dataset",
+)
+for ds in datasets:
+    print(ds.id, ds.name)
+```
+
+## Retrieve a resource
+
+Download or access the content of a specific resource by its ID. Omit the `version` argument to get the latest version.
+
+```python
+# Retrieve the latest version
+resource_data = client.resources.get(
+    project_id="your_project_id",
+    resource_type="dataset",
+    resource_id="your_resource_id",
+)
+
+# Retrieve a specific version
+resource_data = client.resources.get(
+    project_id="your_project_id",
+    resource_type="dataset",
+    resource_id="your_resource_id",
+    version=2,
+)
+```
+
+## Resource versioning
+
+Each call to `client.resources.upload()` for an existing resource creates a new version rather than overwriting the previous one. This means:
+
+- Previous versions remain accessible by specifying the `version` number.
+- Workflows that reference a resource without a pinned version automatically use the latest upload.
+- You can roll back to an earlier version by explicitly requesting it in `client.resources.get()`.
+
+<Note>
+  Version numbers are integers that increment from `1` with each upload.
+  The resource object returned by `upload()` and `list()` includes the current
+  `version` field so you always know which revision you are working with.
+</Note>
+
+## Reference resources in API calls
+
+When you call the REST API directly, resources are addressed by three identifiers: `project_id`, `resource_type`, and `resource_id`. The same identifiers appear in the SDK methods shown above.
+
+```python
+# Full reference pattern used in SDK and REST calls:
+# project_id  : "your_project_id"
+# resource_type: "dataset"
+# resource_id  : "your_resource_id"
+```
+
+<Warning>
+  Deleting a resource removes all its versions permanently. Any workflow that
+  references the deleted resource will fail at run time. Update or redeploy
+  affected workflows before removing a resource.
+</Warning>
+
+For details on how resource-management nodes inside a workflow read and write project resources at run time, see the [Resource Management nodes](/nodes/resource-management) reference.

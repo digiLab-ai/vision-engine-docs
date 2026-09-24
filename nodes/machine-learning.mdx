@@ -1,0 +1,130 @@
+---
+title: "Machine Learning Nodes: Train and Predict"
+sidebarTitle: "Machine Learning"
+description: "Train probabilistic surrogate models, make uncertainty-aware predictions, and evaluate performance — all with quantified confidence intervals."
+---
+
+The machine learning nodes let you build, train, and query probabilistic surrogate models entirely within the Uncertainty Engine. Unlike conventional ML pipelines, every prediction node returns not just a point estimate but also a measure of uncertainty — typically a mean and variance or confidence interval — so you always know how much to trust a result. This makes the nodes well-suited to engineering simulation, sensor data regression, and any domain where data is scarce or expensive to collect.
+
+## Typical workflow pattern
+
+A complete machine learning workflow usually follows four steps:
+
+<Steps>
+  <Step title="Upload training data">
+    Store your tabular training dataset as a project resource. The training nodes expect CSV-style data referenced by a project and resource identifier.
+  </Step>
+  <Step title="Run a training node">
+    Pass the dataset reference and any model configuration to a training node. The node returns a trained model artefact that you can reference in later steps.
+  </Step>
+  <Step title="Run a prediction node">
+    Supply the trained model reference and your input features to a prediction node. The node returns predictions alongside uncertainty estimates.
+  </Step>
+  <Step title="Inspect outputs">
+    Read the mean predictions and confidence intervals from the node's outputs. Use these to make informed decisions or feed downstream workflow steps.
+  </Step>
+</Steps>
+
+## Key types
+
+The `MachineLearningModel` type from `uncertainty_engine_types` represents a reference to a trained model stored in your project. Training nodes produce this type as an output, and prediction nodes consume it as an input. You do not need to serialise or deserialise the model yourself — the platform manages storage and retrieval automatically.
+
+```python
+from uncertainty_engine_types import MachineLearningModel
+```
+
+## Training nodes
+
+Training nodes accept tabular data and a model configuration, then return a trained model artefact and a set of training metrics.
+
+<AccordionGroup>
+  <Accordion title="Typical inputs">
+    <ParamField body="dataset" type="string" required>
+      A reference to a tabular dataset stored as a project resource, in the format `"project_id/resource_id"`.
+    </ParamField>
+    <ParamField body="model_config" type="object">
+      Configuration parameters for the model architecture, such as kernel type or hyperparameter bounds. Exact fields depend on the specific training node.
+    </ParamField>
+  </Accordion>
+  <Accordion title="Typical outputs">
+    <ResponseField name="model" type="MachineLearningModel">
+      A reference to the trained model artefact stored in the project. Pass this directly to a prediction node.
+    </ResponseField>
+    <ResponseField name="metrics" type="object">
+      Training metrics such as log-likelihood or root mean square error, useful for evaluating fit quality.
+    </ResponseField>
+  </Accordion>
+</AccordionGroup>
+
+## Prediction nodes
+
+Prediction nodes accept a trained model reference and a set of input features, then return predictions with associated uncertainty.
+
+<AccordionGroup>
+  <Accordion title="Typical inputs">
+    <ParamField body="model" type="MachineLearningModel" required>
+      A reference to a trained model, obtained from the output of a training node.
+    </ParamField>
+    <ParamField body="inputs" type="array">
+      The feature values for which you want predictions, as a list of rows matching the training feature schema.
+    </ParamField>
+  </Accordion>
+  <Accordion title="Typical outputs">
+    <ResponseField name="mean" type="array">
+      Point predictions for each input row.
+    </ResponseField>
+    <ResponseField name="variance" type="array">
+      Predictive variance for each input row. High variance indicates the model is less confident in that region of the input space.
+    </ResponseField>
+  </Accordion>
+</AccordionGroup>
+
+## Code example
+
+The example below trains a model on a stored dataset and then uses it to make predictions. Import the specific training and prediction node classes you need; the exact class names for your use case are available via `client.list_nodes`.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.machine_learning import Train, Predict
+
+client = Client()
+client.authenticate()
+
+# Train a model on a project dataset
+train_result = client.run_node(
+    Train(dataset="project_id/dataset_id", ...)
+)
+model_ref = train_result.outputs["model"]
+
+# Make predictions using the trained model
+predict_result = client.run_node(
+    Predict(model=model_ref, inputs=...)
+)
+
+# Outputs include mean predictions and uncertainty estimates
+print(predict_result.outputs)  # includes mean and variance/confidence
+```
+
+<Note>
+  The class names `Train` and `Predict` above are illustrative. Discover the exact node names and their parameter schemas for your use case with `client.list_nodes(category="MachineLearning")` and `client.get_node_info(node_name, version)`.
+</Note>
+
+## Use cases
+
+<CardGroup cols={3}>
+  <Card title="Engineering surrogates" icon="gears">
+    Replace expensive finite-element or CFD simulations with fast probabilistic surrogates trained on a small number of high-fidelity runs.
+  </Card>
+  <Card title="Sensor data regression" icon="chart-line">
+    Fit models to noisy sensor time series and propagate measurement uncertainty through to downstream predictions.
+  </Card>
+  <Card title="Simulation acceleration" icon="bolt">
+    Accelerate scientific simulations by training a surrogate on existing results, then querying it at thousands of new input points in seconds.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+- Explore [Sensor Designer nodes](/nodes/sensor-designer) to optimise sensor configurations using your trained models.
+- Learn how to manage the datasets your training nodes consume in [Resource Management nodes](/nodes/resource-management).
+- Browse all available node versions with `client.get_node_versions("NodeName")`.

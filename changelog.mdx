@@ -1,0 +1,130 @@
+---
+title: "Uncertainty Engine SDK Changelog"
+sidebarTitle: "Changelog"
+description: "Version history for the uncertainty-engine Python SDK — review recent additions, changes, and deprecations across all releases."
+---
+
+This page tracks the release history of the `uncertainty-engine` Python SDK. The SDK is in **active beta development**, and new versions are published frequently. Review this page before upgrading to understand what has changed.
+
+<Warning>
+The SDK is a pre-release product. APIs may change between minor versions without a deprecation period. Pin your version in production environments (`uncertainty-engine==0.14.1`) and review this changelog before upgrading.
+</Warning>
+
+---
+
+## v0.14.1 — Latest
+
+**Maintenance release**
+
+This is a patch release focused on keeping the SDK's dependencies up to date. No new features or breaking changes are introduced.
+
+- Updated third-party dependency versions to resolve compatibility warnings.
+- No changes to the public API.
+
+---
+
+## v0.14.0
+
+**New: `query_nodes()` for batch metadata lookup**
+
+- Added `Client.query_nodes(queries)` — submit a list of query strings in a single request and receive matching node metadata in one response. This is more efficient than calling `get_node_info()` repeatedly when you need information about multiple nodes at once.
+
+  ```python
+  results = client.query_nodes(["regression", "classification"])
+  ```
+
+- Improved error messages when a node is not found. `404` responses now include the node identifier in the message to make it easier to spot typos or case mismatches.
+
+---
+
+## v0.13.x
+
+**New: workflow execution with override support**
+
+- Added `Client.run_workflow(project_id, workflow_id, inputs, outputs)` — run a saved workflow synchronously, passing `OverrideWorkflowInput` and `OverrideWorkflowOutput` objects to substitute specific inputs and capture specific outputs at runtime.
+- Added `Client.queue_workflow(...)` — the non-blocking counterpart; use alongside `job_status()` for long-running workflows.
+
+  ```python
+  from uncertainty_engine.types import OverrideWorkflowInput, OverrideWorkflowOutput
+
+  result = client.run_workflow(
+      project_id="my-project",
+      workflow_id="my-workflow",
+      inputs=[OverrideWorkflowInput(node="DataLoader", key="path", value="data.csv")],
+      outputs=[OverrideWorkflowOutput(node="Predict", key="predictions")],
+  )
+  ```
+
+- **Deprecated**: passing raw dictionaries as input/output overrides. Switch to `OverrideWorkflowInput` / `OverrideWorkflowOutput` objects — dict-based overrides will be removed in a future release.
+
+---
+
+## v0.12.x
+
+**New: job cancellation and graph safety option**
+
+- Added `Client.cancel_job(job)` — cancel a queued or running job by passing the job handle returned by `queue_node()` or `queue_workflow()`.
+
+  ```python
+  job = client.queue_node(node, inputs)
+  client.cancel_job(job)
+  ```
+
+- Added `prevent_node_overwrite` option to `Graph`. When set to `True`, adding a node with a label that already exists in the graph raises an error instead of silently overwriting it. If you construct a `Graph` without setting this option, a `FutureWarning` is raised to encourage you to opt in explicitly.
+
+  ```python
+  from uncertainty_engine import Graph
+
+  graph = Graph(prevent_node_overwrite=True)
+  ```
+
+---
+
+## v0.11.x
+
+**New: optional extras and graph helpers**
+
+- Introduced optional install extras so you only pull in the dependencies you need:
+
+  | Extra | Installs |
+  |---|---|
+  | `data` | `numpy`, `pandas` |
+  | `notebook` | `ipykernel` |
+  | `vis` | `matplotlib`, `networkx` |
+
+  ```bash
+  pip install "uncertainty-engine[data,notebook,vis]"
+  ```
+
+- Added `Graph.add_nodes_from(nodes)` — add multiple nodes to a graph in a single call instead of calling `add_node()` in a loop.
+
+  ```python
+  graph.add_nodes_from([
+      ("Add", "add_step", "1.0.0"),
+      ("Number", "input_a", "1.0.0"),
+  ])
+  ```
+
+---
+
+## v0.10.x and earlier
+
+**Initial public SDK release**
+
+The first public release of the `uncertainty-engine` SDK introduced the core building blocks for interacting with the Uncertainty Engine platform:
+
+- `Client` class with environment selection via the `env` parameter (`"prod"`, `"dev"`, or a custom `Environment`).
+- `client.authenticate()` — read credentials from `UE_USERNAME` / `UE_PASSWORD` and cache the token in `~/.ue_auth`.
+- `client.run_node(node)` — run a node synchronously and return the result.
+- `client.queue_node(node, inputs)` — submit a node job asynchronously and return a job handle.
+- `client.job_status(job)` — poll the status of a queued job.
+- `client.list_nodes(category)` — list available nodes, optionally filtered by category.
+- `client.get_node_info(node, version)` — retrieve the input/output schema for a node.
+- `client.view_tokens()` — check the number of tokens remaining in your organisation's quota.
+- `Graph` class with `add_node()`, `add_edge()`, and `add_input()` for building computational graphs.
+
+---
+
+<Tip>
+Watch the [uncertainty-engine-sdk repository on GitHub](https://github.com/digiLab-ai/uncertainty-engine-sdk) to get notified of new releases, read detailed release notes, and track issues and pull requests.
+</Tip>

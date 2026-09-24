@@ -1,0 +1,112 @@
+---
+title: "Build Multi-Node Graphs with the Python SDK"
+sidebarTitle: "Building Graphs"
+description: "Compose nodes into directed graphs that wire the output of one node into the input of another, then save and run them as workflows on the platform."
+---
+
+A graph lets you chain multiple nodes together so the output of one feeds directly into the input of another. Instead of running each node individually and passing results by hand, you define the connections once and the platform executes the whole pipeline for you. Graphs are the Python-side representation of a workflow — once built, you can save them to your project and run them with the `Client`.
+
+## Creating a graph
+
+Import `Graph` from `uncertainty_engine.graph` and create an instance. Set `prevent_node_overwrite=True` to protect yourself from accidentally adding two nodes with the same label:
+
+```python
+from uncertainty_engine.graph import Graph
+
+graph = Graph(prevent_node_overwrite=True)
+```
+
+<Note>
+If you omit `prevent_node_overwrite`, the SDK emits a `FutureWarning` and the default will change in a future release. It is best practice to set it explicitly.
+</Note>
+
+## Adding nodes
+
+### Add a single node
+
+Call `add_node` with a node instance and a unique string label. The label is how you refer to the node when wiring edges:
+
+```python
+from uncertainty_engine.nodes.basic import Add
+
+graph.add_node(Add(lhs=1, rhs=2), label="add_1")
+```
+
+You can optionally pin a specific node version by passing the `version` argument:
+
+```python
+graph.add_node(Add(lhs=0, rhs=0), label="add_2", version="1.0.0")
+```
+
+### Add multiple nodes at once
+
+Use `add_nodes_from` to add a list of `(node, label)` tuples in a single call:
+
+```python
+graph.add_nodes_from([
+    (Add(lhs=1, rhs=2), "add_1"),
+    (Add(lhs=0, rhs=0), "add_2"),
+])
+```
+
+## Wiring edges
+
+Call `add_edge` to connect an output port of one node to an input port of another. Provide the source node label, the output key, the target node label, and the input key:
+
+```python
+graph.add_edge("add_1", "ans", "add_2", "lhs")
+```
+
+This routes the `ans` output of `add_1` into the `lhs` input of `add_2`. You can chain as many edges as you need to build complex pipelines.
+
+## Supplying external inputs
+
+Use `add_input` to supply a value from outside the graph — for example, a parameter you want to override at runtime:
+
+```python
+graph.add_input("add_2_rhs", 10)
+```
+
+The first argument is a key you choose; the second is the value. You can reference this key when wiring edges or when overriding inputs at execution time.
+
+## Full worked example
+
+The following example builds a two-node graph that adds `1 + 2` in the first node, then feeds that result into the left-hand side of a second addition with a right-hand side of `10`:
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.graph import Graph
+from uncertainty_engine.nodes.basic import Add
+
+# Build the graph
+graph = Graph(prevent_node_overwrite=True)
+
+graph.add_node(Add(lhs=1, rhs=2), label="add_1")
+graph.add_node(Add(lhs=0, rhs=0), label="add_2")
+
+# Wire add_1.ans -> add_2.lhs
+graph.add_edge("add_1", "ans", "add_2", "lhs")
+
+# Provide add_2's right-hand side as an external input
+graph.add_input("add_2_rhs", 10)
+```
+
+When this graph runs, `add_1` computes `1 + 2 = 3`, which becomes the `lhs` of `add_2`. Combined with the external input of `10`, `add_2` returns `3 + 10 = 13`.
+
+## Visualising a graph
+
+If you installed the `vis` extra (`pip install "uncertainty-engine[vis]"`), you can render a graph as a visual diagram to verify your wiring before execution:
+
+```python
+graph.visualise()
+```
+
+This opens a matplotlib figure showing each node as a labelled box with directed edges between them.
+
+<Tip>
+Visualising your graph before saving it to the platform is a quick way to catch wiring mistakes without consuming any tokens.
+</Tip>
+
+## Next steps
+
+Once your graph is built and verified, save it to your project through the platform UI or API and run it as a workflow. See [Running Workflows](./running-workflows) for how to execute a saved graph with `run_workflow` and `queue_workflow`, including how to override inputs and capture specific outputs at runtime.

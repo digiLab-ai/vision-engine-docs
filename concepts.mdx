@@ -1,0 +1,159 @@
+---
+title: "Core Concepts: Nodes, Graphs, and Workflows"
+sidebarTitle: "Concepts"
+description: "Understand the fundamental building blocks of the Uncertainty Engine: nodes, graphs, workflows, jobs, projects, resources, and tokens."
+---
+
+The Uncertainty Engine is built around a small set of composable concepts. Once you understand how nodes connect into graphs, how graphs become workflows, and how jobs track execution, you have the mental model you need to build anything on the platform. This page explains each concept clearly, without assuming prior knowledge of the underlying infrastructure.
+
+## Nodes
+
+A **node** is a discrete computational unit — a single, well-defined operation with typed inputs and typed outputs. Nodes are the atomic building blocks of every workflow on the platform. Examples include a `Number` node that provides a constant value, an `Add` node that sums two numbers, a Gaussian process regression node that fits a model to data, or a sensor-designer node that optimises measurement placement.
+
+Every node has:
+
+- **A unique identifier** (e.g. `"Add"`) and one or more **versioned implementations** so you can pin to a known behaviour
+- **Typed inputs** — each input has a name, an expected type, and may be required or optional
+- **Typed outputs** — each output has a name and a type; outputs from one node become inputs to another when nodes are connected in a graph
+
+Nodes are organised into categories: `nodes.basic`, `nodes.machine_learning`, `nodes.sensor_designer`, `nodes.resource_management`, and `nodes.workflow`. You can browse them from the web UI or via the SDK:
+
+```python
+# List nodes in the machine learning category
+nodes = client.list_nodes(category="machine_learning")
+
+# Get the full input/output schema for a node
+info = client.get_node_info(node="Add", version="0.1.0")
+```
+
+You can run a node in isolation — useful for quick experiments — using `client.run_node()` or `client.queue_node()`.
+
+## Graphs
+
+A **graph** is a directed acyclic graph (DAG) of connected nodes. Edges in the graph route the outputs of one node to the inputs of another, allowing you to build multi-step pipelines where data flows from source to sink.
+
+The Python SDK exposes a `Graph` class with methods for adding nodes and drawing connections:
+
+| Method | Purpose |
+|---|---|
+| `add_node(node, label, version)` | Register a node in the graph with a human-readable label |
+| `add_nodes_from(nodes)` | Register multiple nodes at once |
+| `add_edge(source, source_key, target, target_key)` | Connect an output of one node to an input of another |
+| `add_input(key, value)` | Provide a value for an input not wired from another node |
+
+Values that are not wired from another node's output must be supplied as **external inputs** via `add_input`. These are the parameters you control at execution time.
+
+### Example: a two-node graph
+
+The following graph passes the output of a `Number` node into the left-hand side of an `Add` node, and supplies the right-hand side as a fixed external input:
+
+```python
+from uncertainty_engine.nodes.basic import Add, Number
+
+# Define the nodes
+number_node = Number(value=10)
+add_node = Add()
+
+# Build the graph
+graph = Graph()
+graph.add_node(number_node, label="my_number")
+graph.add_node(add_node, label="my_add")
+
+# Wire: the output of 'my_number' feeds the lhs input of 'my_add'
+graph.add_edge(
+    source="my_number", source_key="value",
+    target="my_add",    target_key="lhs"
+)
+
+# Supply the rhs as a fixed external input
+graph.add_input(key="rhs", value=5)
+```
+
+When executed, data flows left-to-right: `Number` produces `10`, the graph adds the external input `5`, and `Add` produces `15`.
+
+## Workflows
+
+A **workflow** is a saved, named graph stored inside a project. Where a graph exists only in memory for the duration of your Python session, a workflow persists on the platform and can be:
+
+- **Executed on demand** with `client.run_workflow(project_id, workflow_id, inputs, outputs)` or `client.queue_workflow(...)`
+- **Shared** with other members of your organisation through the web UI
+- **Versioned** so you can iterate without losing previous configurations
+- **Triggered with input overrides** — you can supply different external inputs at runtime without changing the workflow definition
+
+Workflows are the unit of deployment on the Uncertainty Engine. When you are ready to move from experimentation to production, you save your graph as a workflow.
+
+## Jobs
+
+A **job** is the async execution unit returned whenever you run a node or workflow. Every `queue_node`, `queue_workflow`, `run_node`, or `run_workflow` call submits a job to the platform and returns (or polls for) a `Job` object containing a `job_id`.
+
+You have two execution patterns to choose from:
+
+<Tabs>
+  <Tab title="Synchronous (blocking)">
+    `run_node` and `run_workflow` submit the job and then **poll automatically** until it completes, returning the final result. Use this for interactive scripts and notebooks where you want a simple request-response feel.
+
+    ```python
+    result = client.run_node(Add(lhs=3, rhs=4))
+    print(result.outputs)  # {'ans': 7.0}
+    ```
+  </Tab>
+  <Tab title="Asynchronous (non-blocking)">
+    `queue_node` and `queue_workflow` submit the job and return **immediately** with a `Job` object. Poll for the result yourself when convenient. Use this when you want to submit many jobs in parallel or integrate with your own orchestration.
+
+    ```python
+    job = client.queue_node(Add(), inputs={"lhs": 3, "rhs": 4})
+    print(job.job_id)  # e.g. "a1b2c3d4-..."
+
+    # Check status later
+    status = client.job_status(job)
+    print(status)
+
+    # Cancel if needed
+    client.cancel_job(job)
+    ```
+  </Tab>
+</Tabs>
+
+## Projects
+
+A **project** is an organisational container that groups related workflows and resources. Think of a project as a workspace for a specific use case — for example, a structural health monitoring project that holds its preprocessing workflow, trained model workflow, and the sensor-data files they depend on.
+
+Projects are created and managed through the web UI or the resource API. Every workflow and resource on the platform belongs to exactly one project.
+
+## Resources
+
+**Resources** are files uploaded to a project — datasets, pre-trained models, configuration files, or any other binary or structured data your workflows need. Resources are scoped to a project and referenced by their resource type and ID. You upload and retrieve resources through the resource API, and reference them by ID within workflow node inputs.
+
+## Tokens
+
+The platform uses a **token quota** system. Each node execution consumes a number of tokens proportional to the computational cost of that node. Tokens are allocated at the organisation level; all members of an organisation share the same pool.
+
+Check your available balance at any time:
+
+```python
+available = client.view_tokens()
+print(f"Tokens remaining: {available}")
+```
+
+<Note>
+  If a job fails because your organisation has exhausted its token quota, you will see an error at submission time. Contact your digiLab account manager to top up your allocation.
+</Note>
+
+## Uncertainty Quantification
+
+The Uncertainty Engine is not just a workflow runner — it is built around **uncertainty quantification (UQ)**, a family of mathematical techniques that propagate uncertainty through a model so you know not just *what* the answer is, but *how confident you should be in it*.
+
+Traditional AI systems return a point prediction: "the failure probability is 0.03." A UQ-native system returns a distribution: "the failure probability is 0.03 ± 0.008 at 95% confidence." In safety-critical domains, that difference is the difference between a decision you can defend and one you cannot.
+
+Every node that produces a numerical output on the Uncertainty Engine carries uncertainty metadata through the graph. By the time data reaches the final output node of your workflow, confidence intervals have been propagated end-to-end — without you having to implement any UQ mathematics yourself.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Workflows" icon="diagram-project" href="/platform/workflows">
+    Learn how to create, version, and execute workflows from the web UI and the SDK.
+  </Card>
+  <Card title="Building Graphs" icon="code" href="/sdk/building-graphs">
+    Step-by-step guide to constructing multi-node graphs programmatically with the Python SDK.
+  </Card>
+</CardGroup>

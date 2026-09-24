@@ -1,0 +1,486 @@
+---
+title: "REST API Reference: Projects and Resources"
+sidebarTitle: "Resource Endpoints"
+description: "REST endpoints for managing projects, creating and listing resource records, uploading file versions, and deleting resources via the Resource API."
+---
+
+The Resource API manages the organisational layer of the Uncertainty Engine. Projects are the top-level containers that group your workflows, datasets, trained models, and other assets. Resources are the versioned files — datasets, model artefacts, and similar — that your nodes and workflows consume. Every request to the Resource API requires the `X-Resource-Service-Token` header; see the [REST Overview](/api-reference/rest-overview#resource-api) for details.
+
+<Note>
+  All endpoints on this page are part of the **Resource API**. The base URL is separate from the Core API and is provided in your account details. Authenticate by passing your API key in the `X-Resource-Service-Token` header on every request.
+</Note>
+
+---
+
+## Projects
+
+### List projects
+
+```
+GET /api/projects
+```
+
+Returns all projects associated with your authenticated account.
+
+#### Response
+
+<ResponseField name="(root)" type="array">
+  An array of project objects.
+
+  <Expandable title="Project object">
+    <ResponseField name="project_id" type="string">
+      Unique identifier for the project.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Human-readable project name.
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      ISO 8601 timestamp of when the project was created.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```bash
+curl -X GET "https://<resource_api_base>/api/projects" \
+  -H "X-Resource-Service-Token: <your_api_key>"
+```
+
+```python
+import requests
+
+resource_base = "https://<resource_api_base>"
+headers = {"X-Resource-Service-Token": "<your_api_key>"}
+
+response = requests.get(f"{resource_base}/api/projects", headers=headers)
+response.raise_for_status()
+projects = response.json()
+for project in projects:
+    print(project["project_id"], project["name"])
+```
+
+---
+
+### Create a project
+
+```
+POST /api/projects
+```
+
+Creates a new project and returns the project record, including its assigned `project_id`.
+
+#### Request body
+
+<ParamField body="name" type="string" required>
+  The name for the new project.
+</ParamField>
+
+```json
+{ "name": "my_project" }
+```
+
+#### Response
+
+<ResponseField name="project_id" type="string">
+  The unique identifier assigned to the new project. Store this value — you need it for all subsequent project-scoped requests.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name you provided.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 creation timestamp.
+</ResponseField>
+
+#### Example
+
+```bash
+curl -X POST "https://<resource_api_base>/api/projects" \
+  -H "X-Resource-Service-Token: <your_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my_project"}'
+```
+
+---
+
+### Get project details
+
+```
+GET /api/projects/{project_id}
+```
+
+Returns the full metadata record for a single project.
+
+<ParamField path="project_id" type="string" required>
+  The unique identifier of the project to retrieve.
+</ParamField>
+
+---
+
+### Rename a project
+
+```
+PATCH /api/projects/{project_id}/name
+```
+
+Updates the display name of an existing project.
+
+<ParamField path="project_id" type="string" required>
+  The project to rename.
+</ParamField>
+
+#### Request body
+
+<ParamField body="name" type="string" required>
+  The new name for the project.
+</ParamField>
+
+```json
+{ "name": "new_name" }
+```
+
+#### Example
+
+```bash
+curl -X PATCH "https://<resource_api_base>/api/projects/<project_id>/name" \
+  -H "X-Resource-Service-Token: <your_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "renamed_project"}'
+```
+
+---
+
+### Delete a project
+
+```
+DELETE /api/projects/{project_id}
+```
+
+Permanently deletes a project and all of its contents, including resources and workflow records.
+
+<ParamField path="project_id" type="string" required>
+  The project to delete.
+</ParamField>
+
+<Warning>
+  Deleting a project is irreversible and removes everything contained within it — all resource records, uploaded file versions, and workflow records. Ensure you have backed up anything you want to keep before calling this endpoint.
+</Warning>
+
+---
+
+## Resources
+
+Resources are versioned files — datasets, model artefacts, or any other binary asset — stored within a project. Each resource belongs to a **resource type** (for example `dataset` or `model`), which determines how the Uncertainty Engine categorises and processes it.
+
+### List resources
+
+```
+GET /api/projects/{project_id}/resources/{resource_type}
+```
+
+Returns all resource records of the specified type within a project.
+
+<ParamField path="project_id" type="string" required>
+  The project to list resources from.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The type of resource to list, for example `dataset` or `model`.
+</ParamField>
+
+#### Response
+
+<ResponseField name="(root)" type="array">
+  An array of resource record objects.
+
+  <Expandable title="Resource record object">
+    <ResponseField name="resource_id" type="string">
+      Unique identifier for the resource.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Human-readable resource name.
+    </ResponseField>
+    <ResponseField name="resource_type" type="string">
+      The type category for this resource.
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      ISO 8601 creation timestamp.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Create a resource record
+
+```
+POST /api/projects/{project_id}/resources/{resource_type}
+```
+
+Creates a new resource record within a project. This step registers the resource's metadata; actual file content is uploaded separately using the version endpoints below.
+
+<ParamField path="project_id" type="string" required>
+  The project to create the resource in.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The type category for the new resource.
+</ParamField>
+
+#### Request body
+
+<ParamField body="name" type="string" required>
+  The name for the new resource.
+</ParamField>
+
+```json
+{ "name": "my_dataset" }
+```
+
+#### Response
+
+Returns the created resource record, including the assigned `resource_id`. Store the `resource_id` — you need it for all subsequent version operations.
+
+---
+
+### Get resource metadata
+
+```
+GET /api/projects/{project_id}/resources/{resource_type}/{resource_id}
+```
+
+Returns the full metadata record for a single resource.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The unique identifier of the resource.
+</ParamField>
+
+---
+
+### Get latest resource version
+
+```
+GET /api/projects/{project_id}/resources/{resource_type}/{resource_id}/latest
+```
+
+Returns the metadata for the most recently uploaded version of a resource.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The resource to retrieve the latest version for.
+</ParamField>
+
+---
+
+### List resource versions
+
+```
+GET /api/projects/{project_id}/resources/{resource_type}/{resource_id}/versions
+```
+
+Returns all uploaded versions of a resource, ordered from oldest to newest.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The resource to list versions for.
+</ParamField>
+
+---
+
+### Create a new version
+
+```
+POST /api/projects/{project_id}/resources/{resource_type}/{resource_id}/versions
+```
+
+Creates a new version record for an existing resource and returns a **pending record ID**. Use the pending record ID to upload the actual file bytes with the upload endpoint below.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The resource to add a version to.
+</ParamField>
+
+#### Response
+
+<ResponseField name="pending_record_id" type="string">
+  A temporary identifier for the pending version. Pass this to the upload endpoint to attach the file content.
+</ResponseField>
+
+---
+
+### Upload file bytes
+
+```
+PUT /api/projects/{project_id}/resources/{resource_type}/{resource_id}/pending/{pending_record_id}
+```
+
+Uploads the actual file bytes for a pending version record. Send the raw file content as the request body. Once the upload completes successfully, the version becomes available and the pending record is resolved.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The resource being uploaded to.
+</ParamField>
+
+<ParamField path="pending_record_id" type="string" required>
+  The pending record ID returned by the create-version endpoint.
+</ParamField>
+
+#### Request body
+
+Send the raw file bytes as the request body with an appropriate `Content-Type` header (for example `application/octet-stream` for binary files or `text/csv` for CSV datasets).
+
+---
+
+### Delete a resource
+
+```
+DELETE /api/projects/{project_id}/resources/{resource_type}/{resource_id}
+```
+
+Permanently deletes a resource record and all of its uploaded versions.
+
+<ParamField path="project_id" type="string" required>
+  The project that contains the resource.
+</ParamField>
+
+<ParamField path="resource_type" type="string" required>
+  The resource type category.
+</ParamField>
+
+<ParamField path="resource_id" type="string" required>
+  The resource to delete.
+</ParamField>
+
+<Warning>
+  Deleting a resource removes all versions of the uploaded file permanently. Any workflows or nodes that reference this resource will stop working after deletion.
+</Warning>
+
+---
+
+## Multi-step upload example
+
+Uploading a new resource file requires three sequential API calls: create the resource record, create a version, and upload the file bytes. The example below walks through all three steps.
+
+<Steps>
+  <Step title="Create the resource record">
+    Register the resource in your project to obtain a `resource_id`.
+
+    ```bash
+    curl -X POST \
+      "https://<resource_api_base>/api/projects/<project_id>/resources/dataset" \
+      -H "X-Resource-Service-Token: <your_api_key>" \
+      -H "Content-Type: application/json" \
+      -d '{"name": "training_data"}'
+    ```
+
+    ```python
+    import requests
+
+    resource_base = "https://<resource_api_base>"
+    headers = {"X-Resource-Service-Token": "<your_api_key>"}
+
+    create_response = requests.post(
+        f"{resource_base}/api/projects/{project_id}/resources/dataset",
+        json={"name": "training_data"},
+        headers=headers,
+    )
+    create_response.raise_for_status()
+    resource = create_response.json()
+    resource_id = resource["resource_id"]
+    print(f"Resource ID: {resource_id}")
+    ```
+  </Step>
+
+  <Step title="Create a version record">
+    Create a version entry to receive a `pending_record_id` for the upload.
+
+    ```bash
+    curl -X POST \
+      "https://<resource_api_base>/api/projects/<project_id>/resources/dataset/<resource_id>/versions" \
+      -H "X-Resource-Service-Token: <your_api_key>"
+    ```
+
+    ```python
+    version_response = requests.post(
+        f"{resource_base}/api/projects/{project_id}/resources/dataset/{resource_id}/versions",
+        headers=headers,
+    )
+    version_response.raise_for_status()
+    version_record = version_response.json()
+    pending_record_id = version_record["pending_record_id"]
+    print(f"Pending record ID: {pending_record_id}")
+    ```
+  </Step>
+
+  <Step title="Upload the file bytes">
+    Send the raw file content to complete the upload. The version becomes active once this request succeeds.
+
+    ```bash
+    curl -X PUT \
+      "https://<resource_api_base>/api/projects/<project_id>/resources/dataset/<resource_id>/pending/<pending_record_id>" \
+      -H "X-Resource-Service-Token: <your_api_key>" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary @training_data.csv
+    ```
+
+    ```python
+    with open("training_data.csv", "rb") as f:
+        file_bytes = f.read()
+
+    upload_headers = {
+        **headers,
+        "Content-Type": "application/octet-stream",
+    }
+    upload_response = requests.put(
+        f"{resource_base}/api/projects/{project_id}/resources/dataset"
+        f"/{resource_id}/pending/{pending_record_id}",
+        data=file_bytes,
+        headers=upload_headers,
+    )
+    upload_response.raise_for_status()
+    print("Upload complete — version is now active.")
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  For large files, consider streaming the bytes rather than loading the entire file into memory. Pass a file object directly to `requests.put(data=f, ...)` and Python's `requests` library will stream it automatically.
+</Tip>

@@ -1,0 +1,122 @@
+---
+title: "Resource Management Nodes: Files in Workflows"
+sidebarTitle: "Resource Management"
+description: "Read and write datasets, model artefacts, and other project files from within workflows, keeping data flowing seamlessly between every step."
+---
+
+Resource management nodes give your workflows direct access to the files stored in your projects. Instead of manually passing data between steps outside the platform, you can load a dataset from project storage, pass it to a training or prediction node, and save the result back — all within a single workflow. This keeps your data pipeline self-contained, reproducible, and version-tracked.
+
+## What you can do
+
+<CardGroup cols={2}>
+  <Card title="Load resources" icon="file-arrow-down">
+    Read a dataset, model artefact, or configuration file stored in a project and pass it as input to any downstream node.
+  </Card>
+  <Card title="Save resources" icon="file-arrow-up">
+    Write a node's output back to project storage as a new resource or a new version of an existing one, making results available to future workflows.
+  </Card>
+</CardGroup>
+
+## Key types
+
+The `TabularData` type from `uncertainty_engine_types` represents CSV-based datasets. When a resource management node loads a tabular file, it returns a `TabularData` object that you can pass directly to machine learning or other nodes. If you need to inspect the data locally, `TabularData` supports conversion to a pandas `DataFrame`:
+
+```python
+from uncertainty_engine_types import TabularData
+
+# Convert a TabularData object to a pandas DataFrame for local inspection
+df = tabular_data.to_dataframe()
+```
+
+<Note>
+  pandas integration requires the `data` optional extra. Install it with `pip install "uncertainty-engine[data]"`.
+</Note>
+
+## Building a workflow with resource nodes
+
+The example below constructs a `Graph` that loads a dataset from project storage and passes it directly to a prediction node. The `add_edge` call wires the `data` output of the load step to the `inputs` port of the predict step, so the platform resolves the connection automatically at runtime.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.graph import Graph
+from uncertainty_engine.nodes.resource_management import LoadResource
+from uncertainty_engine.nodes.machine_learning import Predict
+
+# Build the workflow graph
+graph = Graph(prevent_node_overwrite=True)
+
+graph.add_node(
+    LoadResource(project_id="proj_id", resource_id="dataset_id"),
+    label="load"
+)
+graph.add_node(
+    Predict(model="model_id", inputs=None),
+    label="predict"
+)
+
+# Wire the dataset output of "load" into the inputs port of "predict"
+graph.add_edge("load", "data", "predict", "inputs")
+```
+
+Once the graph is built, run it through the client:
+
+```python
+client = Client()
+client.authenticate()
+
+result = client.run_workflow(
+    project_id="proj_id",
+    workflow_id="workflow_id",
+    inputs={},
+    outputs=["predict"]
+)
+print(result)
+```
+
+<Note>
+  The class names `LoadResource` and `Predict` above are illustrative. Discover the exact node names and parameter schemas with `client.list_nodes(category="ResourceManagement")` and `client.get_node_info(node_name, version)`.
+</Note>
+
+## Typical operations
+
+<AccordionGroup>
+  <Accordion title="Load a dataset from a project">
+    Reference a stored dataset by its project and resource identifiers. The node retrieves the latest version of the resource unless you specify a version explicitly.
+
+    ```python
+    from uncertainty_engine.nodes.resource_management import LoadResource
+
+    graph.add_node(
+        LoadResource(project_id="proj_id", resource_id="dataset_id"),
+        label="load_data"
+    )
+    ```
+  </Accordion>
+  <Accordion title="Save a node output as a new resource">
+    Write a node's output back to project storage. Saving creates a new resource version, preserving previous versions for reproducibility.
+
+    ```python
+    from uncertainty_engine.nodes.resource_management import SaveResource
+
+    graph.add_node(
+        SaveResource(project_id="proj_id", resource_name="predictions"),
+        label="save_output"
+    )
+    graph.add_edge("predict", "mean", "save_output", "data")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Chain load, process, and save nodes in a single workflow to create fully automated, end-to-end data pipelines. Every resource write is versioned, so you can trace exactly which inputs produced a given output.
+</Tip>
+
+## Managing resources outside workflows
+
+You can also create, list, and manage project resources directly through the platform — without building a workflow. See the [Resources](/platform/resources) guide for instructions on uploading files, browsing resource versions, and organising data within a project.
+
+## Next steps
+
+- Learn about [Machine Learning nodes](/nodes/machine-learning) to train and predict with the datasets you load.
+- Explore [Sensor Designer nodes](/nodes/sensor-designer) to see how stored configurations feed optimisation workflows.
+- Return to the [Node Library overview](/nodes/overview) to browse all available node categories.

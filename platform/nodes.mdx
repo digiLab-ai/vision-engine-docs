@@ -1,0 +1,120 @@
+---
+title: "Discover and Use Platform Nodes"
+sidebarTitle: "Nodes"
+description: "Browse the full catalogue of pre-built computation units, inspect their inputs and outputs, and pin specific versions for reproducible workflows."
+---
+
+Nodes are the pre-built computation units that power every workflow in the Uncertainty Engine. Each node encapsulates a specific operation — from simple arithmetic to training a machine-learning model — and exposes named input and output ports. You connect nodes together in a graph to build a complete workflow. The Python SDK gives you several methods for discovering what nodes are available, inspecting their signatures, and checking which versions are published.
+
+## List all available nodes
+
+Call `client.list_nodes()` without arguments to retrieve every node registered on the platform.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+nodes = client.list_nodes()
+for node in nodes:
+    print(node.id, node.name)
+```
+
+## Filter by category
+
+Pass a `category` string to narrow the results to a specific group of nodes.
+
+```python
+ml_nodes = client.list_nodes(category="MachineLearning")
+for node in ml_nodes:
+    print(node.id, node.name)
+```
+
+<Note>
+  Category names are case-sensitive. Use the exact strings shown in the
+  categories table below.
+</Note>
+
+## Inspect a node's inputs and outputs
+
+Call `client.get_node_info()` with a node ID and version string to fetch the full schema for that node, including the names and types of all its input and output ports.
+
+```python
+info = client.get_node_info("Add", "0.2.0")
+print(info)
+```
+
+The returned object describes each input handle (name, type, whether it is required) and each output handle, so you know exactly what values to supply when building a graph or overriding inputs at run time.
+
+## Check available versions
+
+Use `client.get_node_versions()` to see every published version of a node.
+
+```python
+versions = client.get_node_versions("Add")
+for version in versions:
+    print(version)
+```
+
+Always note the version string before adding a node to a graph. Pinning a specific version ensures your workflow behaves consistently even after the platform publishes updates.
+
+## Search for nodes by keyword
+
+`client.query_nodes()` accepts a list of search terms and returns nodes whose names or descriptions match.
+
+```python
+results = client.query_nodes(["regression", "uncertainty"])
+for node in results:
+    print(node.id, node.name)
+```
+
+## Node categories
+
+The platform organises nodes into the following categories:
+
+<CardGroup cols={2}>
+  <Card title="Basic" icon="shapes">
+    Foundational utilities such as arithmetic operations (Add, Number) and
+    type conversions. Use these to wire values together or perform simple
+    calculations between more complex nodes.
+  </Card>
+  <Card title="Machine Learning" icon="brain">
+    Model training, inference, and evaluation nodes. Covers supervised and
+    probabilistic models suited to uncertainty-aware prediction tasks.
+  </Card>
+  <Card title="Sensor Designer" icon="signal">
+    Nodes for designing, simulating, and evaluating sensor configurations.
+    Useful for experiments that optimise measurement strategies.
+  </Card>
+  <Card title="Resource Management" icon="database">
+    Nodes that read from and write to project resources such as datasets and
+    model artefacts. Connect these to other nodes to pull data directly from
+    your uploaded files.
+  </Card>
+  <Card title="Workflow" icon="diagram-project">
+    Meta-nodes that let you embed one workflow inside another, enabling
+    modular, reusable pipeline components.
+  </Card>
+</CardGroup>
+
+## Node versioning
+
+Every node on the platform is independently versioned. When you call `graph.add_node()` you specify a `version` argument alongside the node ID and label:
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.graph import Graph
+
+graph = Graph()
+graph.add_node(node="Add", label="my_adder", version="0.2.0")
+```
+
+<Tip>
+  Run `client.get_node_versions("Add")` during development to confirm the
+  latest stable version, then hard-code that string in your graph definition.
+  This protects your workflow from unexpected behaviour if a newer version
+  changes the node's interface.
+</Tip>
+
+For the full catalogue of available nodes with detailed descriptions, see the [Node Reference](/nodes/overview).

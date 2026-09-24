@@ -1,0 +1,163 @@
+---
+title: "Build and Run Workflows on the Platform"
+sidebarTitle: "Workflows"
+description: "Save node graphs as named, reusable workflows inside a project, then execute them with custom inputs — synchronously or as background jobs."
+---
+
+A workflow is a saved node graph stored inside a project. Once a graph is saved as a workflow it gets a stable ID, so any team member can execute it from the SDK or the web UI without reconstructing the graph each time. You can pass input overrides at run time to adjust node parameters without modifying the underlying workflow definition.
+
+## List workflows in a project
+
+Call `client.workflows.list()` with a project ID to see every workflow saved in that project.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+workflows = client.workflows.list(project_id="your_project_id")
+for wf in workflows:
+    print(wf.id, wf.name)
+```
+
+Use the returned `id` value when you run or queue a workflow.
+
+## Run a workflow
+
+`client.run_workflow()` executes a workflow synchronously and blocks until the run finishes, then returns the result.
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+result = client.run_workflow(
+    project_id="your_project_id",
+    workflow_id="your_workflow_id",
+    inputs=[],
+)
+print(result.outputs)
+```
+
+The `result` object contains an `outputs` dictionary keyed by the output labels defined in the workflow.
+
+## Override inputs at run time
+
+You can supply new values for any node input without editing the saved workflow. Import `OverrideWorkflowInput` from `uncertainty_engine_types`, create one override object per parameter you want to change, and pass the list to the `inputs` argument.
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine_types import OverrideWorkflowInput
+
+client = Client()
+client.authenticate()
+
+override_inputs = [
+    OverrideWorkflowInput(
+        node_label="input_node_label",
+        input_handle="input_parameter_name",
+        value="new_value"
+    )
+]
+
+result = client.run_workflow(
+    project_id="your_project_id",
+    workflow_id="your_workflow_id",
+    inputs=override_inputs,
+)
+print(result.outputs)
+```
+
+<Tip>
+  `node_label` is the label you assigned to a node when building the graph in
+  the web UI or via `graph.add_node()`. `input_handle` is the specific input
+  port name on that node. Check `client.get_node_info()` if you are unsure of
+  the exact handle names — see [Nodes](/platform/nodes).
+</Tip>
+
+You can chain multiple overrides in the same list to change several parameters in one run:
+
+```python
+override_inputs = [
+    OverrideWorkflowInput(node_label="scaler", input_handle="factor", value=2.5),
+    OverrideWorkflowInput(node_label="threshold", input_handle="limit", value=0.95),
+]
+```
+
+## Override outputs at run time
+
+Use `OverrideWorkflowOutput` to select which node outputs the workflow returns, and to rename them in the result.
+
+```python
+from uncertainty_engine_types import OverrideWorkflowOutput
+
+override_outputs = [
+    OverrideWorkflowOutput(
+        node_label="prediction_node",
+        output_handle="mean",
+        output_label="predicted_mean"
+    )
+]
+
+result = client.run_workflow(
+    project_id="your_project_id",
+    workflow_id="your_workflow_id",
+    inputs=[],
+    outputs=override_outputs,
+)
+print(result.outputs["predicted_mean"])
+```
+
+## Queue a workflow (asynchronous)
+
+`client.queue_workflow()` submits the workflow as a background job and returns immediately with a job handle. Use this when your workflow is long-running and you do not want to block your script.
+
+```python
+job = client.queue_workflow(
+    project_id="your_project_id",
+    workflow_id="your_workflow_id",
+    inputs=override_inputs,
+)
+
+# Poll for completion
+status = client.job_status(job)
+print(status)
+```
+
+<Tabs>
+  <Tab title="run_workflow (sync)">
+    Blocks until the workflow finishes and returns the full result directly.
+    Best for short runs or interactive notebooks where you want immediate output.
+
+    ```python
+    result = client.run_workflow(
+        project_id="pid",
+        workflow_id="wid",
+        inputs=[],
+    )
+    print(result.outputs)
+    ```
+  </Tab>
+  <Tab title="queue_workflow (async)">
+    Returns a job handle immediately. Poll `client.job_status(job)` to check
+    progress, and call `client.cancel_job(job)` to abort early if needed.
+
+    ```python
+    job = client.queue_workflow(
+        project_id="pid",
+        workflow_id="wid",
+        inputs=[],
+    )
+    status = client.job_status(job)
+    print(status)
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Both `run_workflow` and `queue_workflow` consume tokens from your
+  organisation's quota. Check your available balance with
+  `client.view_tokens()` before submitting expensive runs.
+</Note>

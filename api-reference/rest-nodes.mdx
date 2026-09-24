@@ -1,0 +1,470 @@
+---
+title: "REST API Reference: Node Execution Endpoints"
+sidebarTitle: "Node Endpoints"
+description: "REST endpoints for listing available nodes, queuing node execution, checking job status, cancelling jobs, and retrieving node metadata."
+---
+
+The Core API exposes a set of endpoints for working with nodes — the individual processing units of the Uncertainty Engine. You can use these endpoints to discover what nodes are available, inspect their input and output schemas, queue a node for execution, poll for results, and cancel a running job. All endpoints require a Bearer token in the `Authorization` header; see the [REST Overview](/api-reference/rest-overview) for authentication details.
+
+<Note>
+  If you are working in Python, the SDK methods (`client.run_node`, `client.queue_node`, `client.job_status`, etc.) wrap these endpoints and handle authentication, polling, and error handling for you. Direct REST calls are best suited to non-Python integrations.
+</Note>
+
+---
+
+## List available nodes
+
+```
+GET /nodes/list
+```
+
+Returns a dictionary of all nodes available in the Uncertainty Engine, keyed by node ID. Each entry contains the node's metadata, including its category, description, and version information.
+
+### Query parameters
+
+<ParamField query="category" type="string" optional>
+  Filter the results to a specific node category. Accepted values include `basic`, `machine_learning`, `sensor_designer`, `resource_management`, and `workflow`. When omitted, all nodes are returned.
+</ParamField>
+
+### Response
+
+<ResponseField name="(root)" type="object">
+  A dictionary keyed by node ID. Each value is a node metadata object.
+
+  <Expandable title="Node metadata object">
+    <ResponseField name="name" type="string">
+      Human-readable node name.
+    </ResponseField>
+    <ResponseField name="category" type="string">
+      The category the node belongs to.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      A short description of what the node does.
+    </ResponseField>
+    <ResponseField name="latest_version" type="string">
+      The most recent version string for this node.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X GET "https://<core_api_base>/nodes/list?category=basic" \
+      -H "Authorization: Bearer <access_token>"
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    import requests
+
+    base_url = "https://<core_api_base>"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = requests.get(
+        f"{base_url}/nodes/list",
+        params={"category": "basic"},
+        headers=headers,
+    )
+    response.raise_for_status()
+    nodes = response.json()
+    print(list(nodes.keys()))
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Get node versions
+
+```
+GET /nodes/{node_id}/versions
+```
+
+Returns all available versions for a specific node.
+
+### Path parameters
+
+<ParamField path="node_id" type="string" required>
+  The unique identifier of the node, for example `Add` or `GaussianProcessRegressor`.
+</ParamField>
+
+### Response
+
+<ResponseField name="(root)" type="array">
+  An ordered array of version strings for the requested node, from oldest to newest.
+</ResponseField>
+
+Returns `404` if no node with the given `node_id` exists.
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X GET "https://<core_api_base>/nodes/Add/versions" \
+      -H "Authorization: Bearer <access_token>"
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    response = requests.get(
+        f"{base_url}/nodes/Add/versions",
+        headers=headers,
+    )
+    response.raise_for_status()
+    versions = response.json()
+    # e.g. ["0.1.0", "0.2.0"]
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Query node information
+
+```
+POST /nodes/query
+```
+
+Fetches detailed schema information — inputs, outputs, and descriptions — for one or more nodes at specific versions. Use this endpoint to inspect a node's interface before queuing it.
+
+### Request body
+
+<ParamField body="nodes" type="array" required>
+  A list of node query objects.
+
+  <Expandable title="Node query object">
+    <ParamField body="node_id" type="string" required>
+      The unique node identifier.
+    </ParamField>
+    <ParamField body="version" type="string" required>
+      The version string to retrieve information for, for example `"0.2.0"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Request example
+
+```json
+{
+  "nodes": [
+    { "node_id": "Add", "version": "0.2.0" }
+  ]
+}
+```
+
+### Response
+
+<ResponseField name="(root)" type="object">
+  A dictionary keyed by `"node_id@version"` strings. Each value is a NodeInfo object.
+
+  <Expandable title="NodeInfo object">
+    <ResponseField name="name" type="string">
+      Human-readable name.
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Description of what the node does.
+    </ResponseField>
+    <ResponseField name="inputs" type="object">
+      Dictionary describing each input handle: name, type, and description.
+    </ResponseField>
+    <ResponseField name="outputs" type="object">
+      Dictionary describing each output handle: name, type, and description.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Returns `422` if any requested node ID or version is not found.
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST "https://<core_api_base>/nodes/query" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"nodes": [{"node_id": "Add", "version": "0.2.0"}]}'
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    payload = {
+        "nodes": [
+            {"node_id": "Add", "version": "0.2.0"}
+        ]
+    }
+    response = requests.post(
+        f"{base_url}/nodes/query",
+        json=payload,
+        headers=headers,
+    )
+    response.raise_for_status()
+    info = response.json()
+    print(info["Add@0.2.0"])
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Queue a node for execution
+
+```
+POST /nodes/queue
+```
+
+Queues a node for execution and immediately returns a job ID. Use the job ID with the [status endpoint](#get-job-status) to poll for results. Queuing a node consumes tokens from your organisation's quota.
+
+### Request body
+
+<ParamField body="node_id" type="string" required>
+  The unique identifier of the node to execute.
+</ParamField>
+
+<ParamField body="inputs" type="object" required>
+  A dictionary of input values keyed by the node's input handle names. The expected keys and value types depend on the specific node; query the node's schema first if you are unsure.
+</ParamField>
+
+### Request example
+
+```json
+{
+  "node_id": "Add",
+  "inputs": {
+    "lhs": 1,
+    "rhs": 2
+  }
+}
+```
+
+### Response
+
+<ResponseField name="(root)" type="string">
+  The job ID as a string. Store this value to poll for the job's status.
+</ResponseField>
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST "https://<core_api_base>/nodes/queue" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"node_id": "Add", "inputs": {"lhs": 1, "rhs": 2}}'
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    payload = {
+        "node_id": "Add",
+        "inputs": {"lhs": 1, "rhs": 2},
+    }
+    response = requests.post(
+        f"{base_url}/nodes/queue",
+        json=payload,
+        headers=headers,
+    )
+    response.raise_for_status()
+    job_id = response.json()
+    print(f"Job queued: {job_id}")
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Get job status
+
+```
+GET /nodes/status/{node_id}/{job_id}
+```
+
+Returns the current status and, once complete, the outputs of a queued node job. Poll this endpoint until the `status` field is either `completed` or `failed`.
+
+### Path parameters
+
+<ParamField path="node_id" type="string" required>
+  The node ID that was used when queuing the job.
+</ParamField>
+
+<ParamField path="job_id" type="string" required>
+  The job ID returned by the queue endpoint.
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string">
+  Current job state. One of `pending`, `running`, `completed`, or `failed`.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  A human-readable message about the job's current state, for example `"Job completed at 2025-07-23 09:10:59"`.
+</ResponseField>
+
+<ResponseField name="inputs" type="object">
+  The input values that were passed when the job was queued. Present for all statuses.
+</ResponseField>
+
+<ResponseField name="outputs" type="object | null">
+  The output values produced by the node. Only populated when `status` is `completed`. `null` otherwise.
+</ResponseField>
+
+### Response example
+
+```json
+{
+  "status": "completed",
+  "message": "Job completed at 2025-07-23 09:10:59",
+  "inputs": {
+    "lhs": 1,
+    "rhs": 2
+  },
+  "outputs": {
+    "ans": 3.0
+  }
+}
+```
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X GET "https://<core_api_base>/nodes/status/Add/<job_id>" \
+      -H "Authorization: Bearer <access_token>"
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    import time
+
+    node_id = "Add"
+    # Poll until the job finishes
+    while True:
+        response = requests.get(
+            f"{base_url}/nodes/status/{node_id}/{job_id}",
+            headers=headers,
+        )
+        response.raise_for_status()
+        job = response.json()
+
+        if job["status"] in ("completed", "failed"):
+            break
+        print(f"Status: {job['status']} — waiting...")
+        time.sleep(2)
+
+    if job["status"] == "completed":
+        print("Outputs:", job["outputs"])
+    else:
+        print("Job failed:", job["message"])
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Cancel a job
+
+```
+POST /nodes/jobs/{job_id}/cancel
+```
+
+Requests cancellation of a queued or running job. Returns `true` if the cancellation was accepted. Jobs that have already completed or failed cannot be cancelled.
+
+### Path parameters
+
+<ParamField path="job_id" type="string" required>
+  The job ID to cancel.
+</ParamField>
+
+### Request body
+
+Send an empty JSON object:
+
+```json
+{}
+```
+
+### Response
+
+<ResponseField name="(root)" type="boolean">
+  `true` if the job was successfully cancelled.
+</ResponseField>
+
+### Example
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST "https://<core_api_base>/nodes/jobs/<job_id>/cancel" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{}'
+    ```
+  </Tab>
+  <Tab title="Python (requests)">
+    ```python
+    response = requests.post(
+        f"{base_url}/nodes/jobs/{job_id}/cancel",
+        json={},
+        headers=headers,
+    )
+    response.raise_for_status()
+    cancelled = response.json()
+    print(f"Cancelled: {cancelled}")
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## End-to-end example: queue and poll
+
+The following example brings together the queue and status endpoints to run an `Add` node and wait for the result:
+
+```python
+import time
+import requests
+
+base_url = "https://<core_api_base>"
+headers = {
+    "Authorization": f"Bearer {access_token}",
+    "Content-Type": "application/json",
+}
+
+# 1. Queue the node
+queue_response = requests.post(
+    f"{base_url}/nodes/queue",
+    json={"node_id": "Add", "inputs": {"lhs": 10, "rhs": 5}},
+    headers=headers,
+)
+queue_response.raise_for_status()
+job_id = queue_response.json()
+print(f"Job ID: {job_id}")
+
+# 2. Poll for the result
+while True:
+    status_response = requests.get(
+        f"{base_url}/nodes/status/Add/{job_id}",
+        headers=headers,
+    )
+    status_response.raise_for_status()
+    job = status_response.json()
+
+    if job["status"] == "completed":
+        print("Result:", job["outputs"]["ans"])  # 15.0
+        break
+    elif job["status"] == "failed":
+        raise RuntimeError(f"Job failed: {job['message']}")
+    else:
+        time.sleep(2)
+```
+
+<Tip>
+  When building production integrations, add an exponential back-off to your polling loop and a maximum retry count to avoid hammering the API when a job is slow to start.
+</Tip>

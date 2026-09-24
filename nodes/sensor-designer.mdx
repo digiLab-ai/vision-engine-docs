@@ -1,0 +1,104 @@
+---
+title: "Sensor Designer Nodes: Optimise Under Uncertainty"
+sidebarTitle: "Sensor Designer"
+description: "Design optimal sensor placements and configurations using uncertainty quantification to maximise information gain in any monitoring application."
+---
+
+The sensor designer nodes help you find the best possible placement or configuration of sensors for a given monitoring problem. Instead of choosing sensor locations by intuition or exhaustive trial-and-error, you define the design space and objectives, and the optimisation nodes search for the configuration that maximises information gain under uncertainty. The result is a principled, evidence-based sensor layout that you can export and deploy with confidence.
+
+## Use cases
+
+Sensor designer nodes are well-suited to any domain where measurement resources are limited and uncertainty matters:
+
+<CardGroup cols={2}>
+  <Card title="Industrial monitoring" icon="industry">
+    Optimise pressure, temperature, or vibration sensor arrays on manufacturing equipment to detect faults early.
+  </Card>
+  <Card title="Environmental sensing" icon="leaf">
+    Place environmental sensors across a geographic area to maximise coverage and minimise redundancy.
+  </Card>
+  <Card title="Structural health monitoring" icon="building">
+    Position strain gauges or accelerometers on bridges, pipelines, or buildings for maximum structural observability.
+  </Card>
+  <Card title="Nuclear and energy" icon="atom">
+    Design detector arrays for nuclear facilities or energy infrastructure where sensor access is constrained and reliability is critical.
+  </Card>
+</CardGroup>
+
+## Key types
+
+The `SensorDesigner` type from `uncertainty_engine_types` represents a sensor design problem stored as a project resource. It encapsulates the design space, candidate sensor positions, physical model, and objective function. The `save_sensor_designer` utility function serialises a `SensorDesigner` configuration so you can upload it to your project and reference it from workflow nodes.
+
+```python
+from uncertainty_engine_types import SensorDesigner, save_sensor_designer
+```
+
+## Typical workflow
+
+<Steps>
+  <Step title="Define the design space">
+    Create a `SensorDesigner` configuration that describes the candidate sensor positions, the physical or probabilistic model of your system, and the objective you want to optimise (for example, maximising mutual information or minimising posterior variance).
+  </Step>
+  <Step title="Upload the configuration">
+    Use `save_sensor_designer` to serialise your configuration and upload it as a project resource. Note the resulting `project_id` and `sensor_designer_id`.
+  </Step>
+  <Step title="Run the optimisation node">
+    Pass the configuration reference and your constraints — such as the number of sensors — to an optimisation node and run it via the client.
+  </Step>
+  <Step title="Evaluate the results">
+    Inspect the output sensor placement, review the objective value, and iterate on your design space or constraints if needed.
+  </Step>
+</Steps>
+
+## Code example
+
+```python
+from uncertainty_engine import Client
+from uncertainty_engine.nodes.sensor_designer import OptimiseSensors
+
+client = Client()
+client.authenticate()
+
+# Run a sensor optimisation with a stored design configuration
+result = client.run_node(
+    OptimiseSensors(
+        sensor_designer="project_id/sensor_designer_id",
+        n_sensors=5
+    )
+)
+
+# Inspect the optimised sensor placement and objective value
+print(result.outputs)
+```
+
+<Note>
+  The class name `OptimiseSensors` and its parameter names above are illustrative. Discover the exact node names and parameter schemas for your use case with `client.list_nodes(category="SensorDesigner")` and `client.get_node_info(node_name, version)`.
+</Note>
+
+## Saving a sensor designer configuration
+
+Before you can reference a sensor design from a workflow node, you need to serialise and upload it. Use the `save_sensor_designer` helper to write your `SensorDesigner` object to a format the platform can store.
+
+```python
+from uncertainty_engine_types import SensorDesigner, save_sensor_designer
+
+# Build your sensor designer configuration
+config = SensorDesigner(
+    # ... design space, model, and objective parameters
+)
+
+# Serialise the configuration for upload to a project resource
+saved = save_sensor_designer(config)
+```
+
+After uploading, reference the resource by its `project_id/resource_id` path in any sensor designer node input.
+
+<Tip>
+  Iterate quickly by running optimisation jobs asynchronously with `client.queue_node` and polling with `client.job_status`. This lets you submit multiple design variants in parallel and compare results without waiting for each to finish sequentially.
+</Tip>
+
+## Next steps
+
+- Learn about [Machine Learning nodes](/nodes/machine-learning) to incorporate probabilistic surrogate models into your sensor design objective.
+- See [Resource Management nodes](/nodes/resource-management) for guidance on uploading and referencing sensor designer configurations as project resources.
+- Return to the [Node Library overview](/nodes/overview) to explore all available categories.

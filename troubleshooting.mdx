@@ -1,0 +1,293 @@
+---
+title: "Troubleshooting the Uncertainty Engine SDK"
+sidebarTitle: "Troubleshooting"
+description: "Resolve common SDK errors including authentication failures, node and job problems, connectivity issues, installation errors, and token quota questions."
+---
+
+If something isn't working as expected, this page walks you through the most common issues and their solutions. Work through the relevant section below — if you still can't resolve the problem, reach out to the support team at the bottom of this page.
+
+## Authentication Issues
+
+<Accordion title='IncompleteCredentials error'>
+The SDK raises `IncompleteCredentials` when it cannot find your login credentials. This happens when the `UE_USERNAME` or `UE_PASSWORD` environment variables are not set before you call `client.authenticate()`.
+
+Export both variables in your terminal before running your script:
+
+<Tabs>
+  <Tab title="macOS / Linux">
+    ```bash
+    export UE_USERNAME="your@email.com"
+    export UE_PASSWORD="your-password"
+    ```
+  </Tab>
+  <Tab title="Windows (Command Prompt)">
+    ```cmd
+    set UE_USERNAME=your@email.com
+    set UE_PASSWORD=your-password
+    ```
+  </Tab>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    $env:UE_USERNAME = "your@email.com"
+    $env:UE_PASSWORD = "your-password"
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+To avoid setting these variables every session, add the `export` lines to your shell profile (e.g. `~/.zshrc` or `~/.bashrc`) or store them in a `.env` file loaded by your project.
+</Tip>
+</Accordion>
+
+<Accordion title="Stale auth tokens after switching environments">
+The SDK caches your authentication token in `~/.ue_auth`. If you switch between environments (for example from `"prod"` to `"dev"`), the cached token from the previous environment will be rejected and you may see unexpected authentication failures.
+
+Delete the cache file and re-authenticate:
+
+<Tabs>
+  <Tab title="macOS / Linux">
+    ```bash
+    rm ~/.ue_auth
+    ```
+  </Tab>
+  <Tab title="Windows (Command Prompt)">
+    ```cmd
+    del %USERPROFILE%\.ue_auth
+    ```
+  </Tab>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    Remove-Item "$HOME\.ue_auth"
+    ```
+  </Tab>
+</Tabs>
+
+After deleting the file, call `client.authenticate()` again to obtain a fresh token for the new environment.
+</Accordion>
+
+<Accordion title="Wrong password for the selected environment">
+Passwords are **environment-specific**. The password you use for `"prod"` will not work for `"dev"`, and vice versa. Make sure the value of `UE_PASSWORD` corresponds to the environment you pass to `Client`:
+
+```python
+from uncertainty_engine import Client
+
+# Production — use your production password
+client = Client()                  # env defaults to "prod"
+
+# Dev — use your dev password
+client = Client(env="dev")
+```
+
+If you have recently changed your password for one environment, update the `UE_PASSWORD` variable (and clear `~/.ue_auth`) before authenticating again.
+</Accordion>
+
+<Accordion title="401 Unauthorized">
+A `401 Unauthorized` response means your authentication token has expired. Tokens are valid for a limited period; after expiry, all API requests will be rejected.
+
+Call `authenticate()` to refresh your token:
+
+```python
+client.authenticate()
+```
+
+If the error persists after re-authenticating, verify that `UE_USERNAME` and `UE_PASSWORD` are set correctly for the target environment and that the `~/.ue_auth` cache file has been removed (see *Stale auth tokens* above).
+</Accordion>
+
+---
+
+## Node & Job Errors
+
+<Accordion title="Job fails immediately after submission">
+If a job transitions to a failed state almost instantly, the most likely cause is an invalid or missing input. Use `get_node_info()` to inspect the expected input schema for the node:
+
+```python
+info = client.get_node_info("Add", version="1.0.0")
+print(info)
+```
+
+Compare the returned schema against the inputs you are supplying. Common mistakes include:
+
+- Passing a string where a number is expected
+- Omitting a required input key
+- Using an incorrect key name (input keys are case-sensitive)
+</Accordion>
+
+<Accordion title="Node not found (404)">
+A `404` response when running a node usually means the node name is misspelled or does not exist in the environment you are targeting.
+
+Use `list_nodes()` to retrieve the exact names of available nodes:
+
+```python
+# List all nodes
+all_nodes = client.list_nodes()
+
+# List nodes in a specific category
+ml_nodes = client.list_nodes(category="nodes.machine_learning")
+```
+
+<Warning>
+Node names are case-sensitive. `"add"` and `"Add"` are treated as different node identifiers.
+</Warning>
+</Accordion>
+
+<Accordion title="Wrong node version">
+If you reference a version that does not exist, the request will fail. Retrieve the full list of available versions for a node with `get_node_versions()`:
+
+```python
+versions = client.get_node_versions("Add")
+print(versions)
+```
+
+Then pass the correct version string to `run_node()` or `get_node_info()`:
+
+```python
+result = client.run_node(node)   # version is part of the node definition
+```
+</Accordion>
+
+---
+
+## Connectivity & Environment
+
+<Accordion title="SDK hangs on run_node()">
+`run_node()` is a blocking call — it waits for the job to complete before returning. For long-running nodes this can appear to hang, especially on slow or intermittent connections.
+
+First, verify your internet connection is stable. Then consider switching to the non-blocking pattern so you can monitor progress independently:
+
+```python
+# Submit the job without blocking
+job = client.queue_node(node, inputs)
+
+# Poll for status
+status = client.job_status(job)
+print(status)
+```
+
+This lets you check status at your own pace and avoids connection timeouts on lengthy computations.
+</Accordion>
+
+<Accordion title="Errors with a custom Environment">
+When you provide a custom `Environment`, every field must be correct. A single typo or trailing slash will cause all requests to fail:
+
+```python
+from uncertainty_engine import Client, Environment
+
+env = Environment(
+    cognito_user_pool_client_id="YOUR_CLIENT_ID",
+    core_api="https://your-core-api.example.com",   # no trailing slash
+    region="eu-west-1",
+    resource_api="https://your-resource-api.example.com",  # no trailing slash
+)
+
+client = Client(env=env)
+```
+
+Check each of the four values carefully:
+
+- **`cognito_user_pool_client_id`** — the Cognito app client ID for your deployment
+- **`core_api`** — the base URL of the Core API (no trailing `/`)
+- **`region`** — the AWS region your deployment resides in (e.g. `"eu-west-1"`)
+- **`resource_api`** — the base URL of the Resource API (no trailing `/`)
+</Accordion>
+
+<Accordion title="Using the dev environment">
+Connect to the development environment by passing `env="dev"` to `Client`:
+
+```python
+from uncertainty_engine import Client
+
+client = Client(env="dev")
+client.authenticate()
+```
+
+<Note>
+Your dev environment password is different from your production password. Make sure `UE_PASSWORD` is set to your **dev** password before authenticating, and clear the `~/.ue_auth` cache if you were previously authenticated against production.
+</Note>
+</Accordion>
+
+---
+
+## Installation Issues
+
+<Accordion title="Import errors after installing the SDK">
+If you see `ModuleNotFoundError` for packages such as `numpy`, `pandas`, `ipykernel`, or `matplotlib`, you may have installed the base package without the optional extras that provide those dependencies.
+
+Install the extras you need:
+
+```bash
+# All extras
+pip install "uncertainty-engine[data,notebook,vis]"
+
+# Individual extras
+pip install "uncertainty-engine[data]"      # numpy and pandas
+pip install "uncertainty-engine[notebook]"  # ipykernel for Jupyter
+pip install "uncertainty-engine[vis]"       # matplotlib and networkx
+```
+
+If you are still seeing import errors after installing extras, confirm you are installing into — and running from — the same Python environment.
+</Accordion>
+
+<Accordion title="Python version errors">
+The SDK requires **Python ≥ 3.10 and < 3.14**. If you are on an older version you will see errors at install time or unexpected behaviour at runtime.
+
+Check your Python version:
+
+```bash
+python --version
+```
+
+If you need to upgrade, install a compatible Python version using your system package manager, [pyenv](https://github.com/pyenv/pyenv), or the [official Python downloads](https://www.python.org/downloads/).
+</Accordion>
+
+<Accordion title="Dependency conflicts">
+If `pip` reports conflicts between `uncertainty-engine` and other packages in your environment, the safest fix is to create a dedicated virtual environment:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate           # Windows
+
+pip install "uncertainty-engine[data,notebook,vis]"
+```
+
+Starting with a clean environment prevents version conflicts from other projects you have installed.
+</Accordion>
+
+---
+
+## Token & Quota
+
+<Accordion title="view_tokens() returns 0">
+A token count of `0` means your organisation's quota is exhausted. You will not be able to run further jobs until tokens are replenished.
+
+```python
+remaining = client.view_tokens()
+print(f"Tokens available: {remaining}")
+```
+
+Contact your organisation admin to review your quota, or reach out to digiLab support at [info@digilab.ai](mailto:info@digilab.ai) to discuss increasing your allocation.
+</Accordion>
+
+<Accordion title="Unexpected token consumption">
+Every call to `run_node()` or `run_workflow()` consumes tokens from your organisation's quota — even if the job ultimately fails. To avoid wasting tokens:
+
+1. Validate your inputs locally before submitting (use `get_node_info()` to check the schema).
+2. Use `queue_node()` or `queue_workflow()` together with `job_status()` to confirm a job succeeded before acting on its outputs or submitting dependent jobs.
+
+```python
+job = client.queue_node(node, inputs)
+
+status = client.job_status(job)
+if status == "succeeded":
+    # Safe to proceed
+    ...
+```
+
+If you notice a large unexpected drop in tokens, contact [info@digilab.ai](mailto:info@digilab.ai) with the relevant job IDs so the support team can investigate.
+</Accordion>
+
+---
+
+<Note>
+**Need more help?** Contact the digiLab support team at [info@digilab.ai](mailto:info@digilab.ai) and include any error messages, the SDK version (`pip show uncertainty-engine`), and the steps to reproduce the issue.
+</Note>

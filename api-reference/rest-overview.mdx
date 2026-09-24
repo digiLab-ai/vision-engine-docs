@@ -1,0 +1,150 @@
+---
+title: "REST API Overview: Uncertainty Engine Endpoints"
+sidebarTitle: "REST Overview"
+description: "An overview of the Core API and Resource API for the Uncertainty Engine, covering base URLs, authentication methods, and token consumption."
+---
+
+The Uncertainty Engine exposes two REST APIs that power everything from node execution to project management. The **Core API** handles node queuing, job status polling, and workflow runs. The **Resource API** manages the organisational layer: projects, uploaded resources, and workflow records. Both APIs return JSON and follow standard HTTP conventions for status codes and errors.
+
+<Note>
+  The Python SDK (`pip install uncertainty-engine`) is the recommended way to interact with the Uncertainty Engine. Direct REST API access is intended for advanced integrations — for example, calling the API from a language other than Python or embedding it in an existing automation pipeline.
+</Note>
+
+## Two API surfaces
+
+<CardGroup cols={2}>
+  <Card title="Core API" icon="bolt">
+    Handles node discovery, node execution, job status, job cancellation, and workflow runs. All compute-facing operations go through this API.
+  </Card>
+  <Card title="Resource API" icon="folder-open">
+    Manages projects, uploaded resources (datasets, models, and similar assets), and workflow records. Operations here are organisational rather than computational.
+  </Card>
+</CardGroup>
+
+The base URLs for both APIs are environment-specific and are provided to you when your account is provisioned. If you are using the `"prod"` environment (the default), your account welcome details will include the correct base URLs.
+
+## Authentication
+
+### Core API
+
+The Core API uses **Bearer token authentication**. The Uncertainty Engine SDK handles this automatically when you call `client.authenticate()`. If you need the token for direct REST calls, retrieve it from the SDK after authenticating:
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+
+# Retrieve the access token for use in REST requests
+access_token = client.auth.get_tokens().access_token
+print(access_token)
+```
+
+Pass this token in every request to the Core API:
+
+```
+Authorization: Bearer <access_token>
+```
+
+Tokens expire after a period of time. When a token expires, call `client.authenticate()` again to refresh it, then retrieve the new value.
+
+### Resource API
+
+The Resource API uses a separate **API key** passed as a custom header:
+
+```
+X-Resource-Service-Token: <your_api_key>
+```
+
+Your API key is provided alongside your account details. Keep it secret and never commit it to source control.
+
+## Token consumption
+
+Each node execution consumes tokens from your organisation's quota. Tokens are deducted when a job is queued, not when it completes. You can check your remaining balance at any time with the SDK:
+
+```python
+remaining = client.view_tokens()
+print(f"Tokens remaining: {remaining}")
+```
+
+If your organisation runs out of tokens, queuing requests will be rejected. Contact your digiLab account manager to top up your quota.
+
+## Request and response format
+
+Both APIs accept and return **JSON**. Set the `Content-Type` header on any request that includes a body:
+
+```
+Content-Type: application/json
+```
+
+### HTTP status codes
+
+| Code | Meaning |
+|------|---------|
+| `200` | Request succeeded |
+| `201` | Resource created successfully |
+| `400` | Bad request — check your request body |
+| `401` | Unauthorised — missing or invalid credentials |
+| `403` | Forbidden — valid credentials but insufficient permissions |
+| `404` | Resource not found |
+| `422` | Unprocessable entity — valid JSON but failed validation |
+| `429` | Too many requests — rate limit exceeded |
+| `500` | Internal server error |
+
+### Error response body
+
+Error responses include a JSON body with a `detail` field describing what went wrong:
+
+```json
+{
+  "detail": "Node 'UnknownNode' not found."
+}
+```
+
+Some validation errors (HTTP 422) return an array of error objects:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "node_id"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
+}
+```
+
+## Environment-specific configuration
+
+The Uncertainty Engine supports multiple environments. The SDK's `Environment` class lets you point the client at a specific deployment:
+
+```python
+from uncertainty_engine import Client, Environment
+
+env = Environment(
+    cognito_user_pool_client_id="<client_id>",
+    core_api="https://<core_api_id>.execute-api.<region>.amazonaws.com",
+    region="<region>",
+    resource_api="https://<resource_api_id>.execute-api.<region>.amazonaws.com",
+)
+
+client = Client(environment=env)
+client.authenticate()
+```
+
+For most users, the built-in `"prod"` environment (the default) is all you need.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Node Endpoints" icon="circle-nodes" href="/api-reference/rest-nodes">
+    Queue nodes, poll job status, and discover available node types.
+  </Card>
+  <Card title="Workflow Endpoints" icon="diagram-project" href="/api-reference/rest-workflows">
+    Run saved workflows and manage workflow records within projects.
+  </Card>
+  <Card title="Resource Endpoints" icon="database" href="/api-reference/rest-resources">
+    Create projects, upload datasets, and manage resource versions.
+  </Card>
+</CardGroup>

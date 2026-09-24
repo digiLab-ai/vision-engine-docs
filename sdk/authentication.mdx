@@ -1,0 +1,123 @@
+---
+title: "Authenticate with the Uncertainty Engine SDK"
+sidebarTitle: "Authentication"
+description: "Set your Uncertainty Engine credentials as environment variables and call authenticate() to get a valid session token before making any API calls."
+---
+
+The SDK authenticates using the same username and password as your Uncertainty Engine account. Credentials are read from environment variables so you never have to hard-code them in your scripts. Once authenticated, the SDK caches your token locally so subsequent calls in the same session are fast.
+
+<Warning>
+Never commit credentials to source control. Store them in a `.env` file and add that file to your `.gitignore`, or inject them through your CI/CD secrets manager.
+</Warning>
+
+## Set up credentials and authenticate
+
+<Steps>
+
+### Set your credentials as environment variables
+
+Open a terminal and export your Uncertainty Engine account email and password:
+
+```bash
+export UE_USERNAME="your@email.com"
+export UE_PASSWORD="your_password"
+```
+
+On Windows (Command Prompt):
+
+```batch
+set UE_USERNAME=your@email.com
+set UE_PASSWORD=your_password
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:UE_USERNAME = "your@email.com"
+$env:UE_PASSWORD = "your_password"
+```
+
+### Create a client and authenticate
+
+Import the `Client` class, instantiate it, then call `authenticate()`:
+
+```python
+from uncertainty_engine import Client
+
+client = Client()
+client.authenticate()
+```
+
+`authenticate()` reads `UE_USERNAME` and `UE_PASSWORD` from your environment, exchanges them for a session token, and stores the token in a local cache file. After this call succeeds, your client is ready to run nodes and workflows.
+
+### Confirm authentication succeeded
+
+`authenticate()` raises an exception if credentials are invalid. If it returns without error, you are authenticated. You can also verify by checking your remaining token quota:
+
+```python
+tokens = client.view_tokens()
+print(f"Available tokens: {tokens}")
+```
+
+</Steps>
+
+## Token cache
+
+The SDK writes your session token to `~/.ue_auth` after a successful authentication. Subsequent `authenticate()` calls within the token's validity window reuse this cache instead of making a network round-trip.
+
+If you switch environments (for example from production to development) or change your password, delete the cache file to force a fresh login:
+
+<Tabs>
+<Tab title="macOS / Linux">
+```bash
+rm ~/.ue_auth
+```
+</Tab>
+<Tab title="Windows">
+```batch
+del "%USERPROFILE%\.ue_auth"
+```
+</Tab>
+</Tabs>
+
+## Switching environments
+
+The Uncertainty Engine has separate **production** and **development** environments, each with its own set of credentials. Pass the `env` argument when creating the client:
+
+```python
+from uncertainty_engine import Client
+
+# Production (default)
+client = Client()
+
+# Development
+client = Client(env="dev")
+```
+
+<Note>
+Your password is **environment-specific**. A password that works in production will not work in development, and vice versa. If authentication fails after switching environments, also delete `~/.ue_auth` to clear any cached token from the previous environment.
+</Note>
+
+For custom deployments, pass an `Environment` object instead of a string. See the [Client reference](./client) for details.
+
+## Troubleshooting
+
+### `IncompleteCredentials` error
+
+If you see an `IncompleteCredentials` exception, the SDK could not find one or both of the required environment variables. Check that both `UE_USERNAME` and `UE_PASSWORD` are set in the shell session where you are running your script:
+
+```bash
+echo $UE_USERNAME
+echo $UE_PASSWORD
+```
+
+If either command prints nothing, re-export the variable. If you are using a `.env` file, make sure it is being loaded before the SDK is imported — for example with the `python-dotenv` package:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()  # loads .env before the client reads env vars
+
+from uncertainty_engine import Client
+client = Client()
+client.authenticate()
+```
